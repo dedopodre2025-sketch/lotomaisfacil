@@ -38,3 +38,5 @@ jobs:
             git commit -m "Instala Loto Mais Fácil v5.2"
             git push
           fi
+
+# Trigger de instalação v5.2
