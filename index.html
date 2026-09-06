@@ -101,6 +101,26 @@
         
         /* Estilos Transição */
         .trans-badge { font-size: 9px; font-weight: 900; color: #6366f1; background: #eef2ff; padding: 2px 6px; border-radius: 4px; }
+        .internal-panel { background:#fff; border:1px solid #d1fae5; border-top:4px solid #059669; border-radius:1.5rem; padding:1.5rem; min-width:0; color:#1e293b; font-size:1rem; line-height:1.5; }
+        .internal-panel h2 { font-size:1.25rem; font-weight:800; margin:0 0 .5rem; }
+        .internal-panel p { margin:.65rem 0; }
+        .internal-panel [hidden] { display:none !important; }
+        .internal-actions { display:flex; flex-wrap:wrap; align-items:center; gap:.65rem; margin:.75rem 0; }
+        .internal-panel button, .internal-panel select { font:inherit; font-size:.875rem; padding:.65rem .85rem; border-radius:.65rem; border:1px solid #047857; background:#047857; color:#fff; font-weight:700; min-height:44px; max-width:100%; }
+        .internal-panel select, .internal-panel .internal-secondary { color:#1e293b; background:#fff; border-color:#cbd5e1; }
+        .internal-panel button:disabled { opacity:.45; cursor:not-allowed; }
+        .internal-panel :focus-visible { outline:3px solid #0891b2; outline-offset:3px; }
+        .internal-stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.6rem; margin:1rem 0; }
+        .internal-stats div { background:#f1f5f9; border-radius:.75rem; padding:.7rem; }
+        .internal-stats span, .internal-stats small { display:block; font-size:.875rem; color:#475569; }
+        .internal-stats strong { display:block; font-size:1.75rem; font-weight:800; }
+        .internal-panel .internal-note, .internal-panel .internal-meta { font-size:.875rem; color:#475569; overflow-wrap:anywhere; }
+        .internal-table-scroll { overflow-x:auto; max-width:100%; }
+        .internal-panel table { width:100%; border-collapse:collapse; font-size:.875rem; }
+        .internal-panel caption { text-align:left; color:#475569; padding:.5rem 0; }
+        .internal-panel th, .internal-panel td { text-align:left; padding:.6rem; border-bottom:1px solid #e2e8f0; }
+        .internal-panel th { background:#f1f5f9; }
+        .internal-numbers { font-family:monospace; min-width:14rem; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -116,7 +136,7 @@
                 <h1 class="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-2">
                     <span class="text-emerald-600">LOTO</span> MAIS FÁCIL
                 </h1>
-                <p class="text-xs text-gray-400 font-bold uppercase tracking-widest italic text-range-desc">v5.2 Affinity Lab</p>
+                <p class="text-xs text-gray-400 font-bold uppercase tracking-widest italic text-range-desc">v5.3 Combinações Internas</p>
             </div>
             <nav class="flex gap-2 bg-white p-1 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto max-w-full">
                 <button onclick="switchTab('simulador')" id="btn-tab-simulador" class="tab-btn active whitespace-nowrap">Simulador</button>
@@ -158,7 +178,7 @@
                                 <span class="text-[9px] font-black text-emerald-400 uppercase">Aderência:</span>
                                 <span id="confidence-value" class="text-[12px] font-black text-emerald-600">0%</span>
                             </div>
-                            <div id="counter" class="text-3xl font-black text-slate-800">0 / 17</div>
+                            <div id="counter" class="text-3xl font-black text-slate-800">0 / 18</div>
                         </div>
                     </div>
                     <div id="board" class="grid grid-cols-5 gap-4 mb-6"></div>
@@ -178,6 +198,55 @@
                         </button>
                     </div>
                 </div>
+
+                <section id="internal-panel" class="internal-panel" aria-labelledby="internal-title" aria-busy="false">
+                    <h2 id="internal-title">Jogos internos de 15 dezenas</h2>
+                    <p>Veja a maior coincidência de cada combinação com toda a base carregada.</p>
+                    <div class="internal-actions">
+                        <button type="button" id="internal-run" disabled>Analisar combinações de 15</button>
+                        <button type="button" id="internal-cancel" class="internal-secondary" hidden>Cancelar</button>
+                    </div>
+                    <p id="internal-status" role="status" aria-live="polite">Selecione de 15 a 18 dezenas no volante.</p>
+                    <div id="internal-results" hidden>
+                        <p id="internal-base" class="internal-meta"></p>
+                        <p><strong id="internal-total">0</strong> combinações distintas de 15</p>
+                        <div class="internal-stats">
+                            <div><span>Máximo até 12</span><strong id="internal-upTo12">0</strong><small id="internal-upTo12-percent"></small></div>
+                            <div><span>Máximo 13</span><strong id="internal-max13">0</strong><small id="internal-max13-percent"></small></div>
+                            <div><span>Máximo 14</span><strong id="internal-max14">0</strong><small id="internal-max14-percent"></small></div>
+                            <div><span>Máximo 15</span><strong id="internal-max15">0</strong><small id="internal-max15-percent"></small></div>
+                        </div>
+                        <p class="internal-note">Cada jogo aparece em uma única classe. Passar no filtro histórico não demonstra maior probabilidade futura.</p>
+                        <label for="internal-filter">Mostrar e exportar</label>
+                        <div class="internal-actions">
+                            <select id="internal-filter">
+                                <option value="upTo13">Máximo até 13</option>
+                                <option value="all">Todos os jogos</option>
+                                <option value="upTo12">Máximo até 12</option>
+                                <option value="max13">Máximo exatamente 13</option>
+                                <option value="max14">Máximo exatamente 14</option>
+                                <option value="max15">Máximo exatamente 15</option>
+                            </select>
+                            <button type="button" id="internal-export" disabled>Exportar TXT</button>
+                        </div>
+                        <p id="internal-filtered"></p>
+                        <p id="internal-probability" class="internal-note"></p>
+                        <p class="internal-note">Aposta completa de 16, 17 ou 18 dezenas inclui todos os jogos internos. Para excluir combinações, use os jogos simples exportados.</p>
+                        <div class="internal-table-scroll" tabindex="0" aria-label="Tabela dos jogos internos">
+                            <table>
+                                <caption>Máximo em comum com a base, por jogo de 15</caption>
+                                <thead><tr><th scope="col">Dezenas</th><th scope="col">Máximo</th><th scope="col">Concursos nesse máximo</th><th scope="col">Concurso exemplo</th></tr></thead>
+                                <tbody id="internal-rows"></tbody>
+                            </table>
+                        </div>
+                        <p id="internal-empty" hidden>Nenhum jogo atende ao filtro selecionado.</p>
+                        <div id="internal-pagination" class="internal-actions" hidden>
+                            <button type="button" id="internal-prev" class="internal-secondary">Anterior</button>
+                            <span id="internal-page"></span>
+                            <button type="button" id="internal-next" class="internal-secondary">Próxima</button>
+                        </div>
+                    </div>
+                </section>
 
                 <div class="metric-card bg-gray-900 text-white border-none overflow-hidden space-y-4">
                     <h3 class="text-emerald-400 font-bold text-xs uppercase tracking-widest text-center md:text-left italic">Simulação de Prêmios na Base Histórica</h3>
@@ -837,7 +906,7 @@
             </div>
         </div>
     </div>
-    <script type="module" src="js/main.js?v=5.2.0"></script>
+    <script type="module" src="js/main.js?v=5.3.0"></script>
 
     <!-- Modal de confirmação (F0.4 — substitui confirm() nativo) -->
     <div id="confirm-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.55);align-items:center;justify-content:center">

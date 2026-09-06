@@ -16,7 +16,8 @@
  * aqui por compatibilidade. A integração completa acontece em fases futuras.
  */
 
-import { DEFAULT_HISTORY } from './data/defaultData.js';
+import { DEFAULT_HISTORY } from './data/defaultData.js?v=5.3.0';
+import { createInternalGamesPanel } from './ui/internalGames.js?v=5.3.0';
 import { sanitizeHTML } from './core/utils.js';
 import {
     calculateHumanPopularity as calculateHumanPopularityCore,
@@ -38,6 +39,7 @@ const AFFINITY13_WORKER_BUILD = 'v5.2-affinity13-lab-20260816';
 let activeAffinity13Worker = null;
 let database = []; 
 let selectedNumbers = new Set();
+const internalGamesPanel = createInternalGamesPanel(() => ({selection: [...selectedNumbers], database}));
 let coOcorrenciaData = null; // Matriz de co-ocorrência + chi-quadrado (computada sob demanda)
 let clusterData     = null; // F3.11 — Clusters Jaccard (5 grupos de dezenas)
 let markovData      = null; // F3.8 — Matrizes de Markov (paridade, soma, primos)
@@ -84,7 +86,7 @@ let DYNAMIC_WEIGHTS = { ...WEIGHTS }; // NOVO: Pesos modulados inteligentemente 
 const PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23];
 const FRAME = [1,2,3,4,5,6,10,11,15,16,20,21,22,23,24,25];
 const QUADRANTS = { Q1: [1, 2, 3, 6, 7, 8, 11, 12, 13], Q2: [4, 5, 9, 10, 14, 15], Q3: [16, 17, 18, 21, 22, 23], Q4: [19, 20, 24, 25] };
-const RULES = { max_coinc: 12, quad_warn: 7, seq_alert: 5, max_pick: 17, parity: [6,9], sum: [170,220] };
+const RULES = { max_coinc: 12, quad_warn: 7, seq_alert: 5, max_pick: 18, parity: [6,9], sum: [170,220] };
 
 // Toast inline — versão definitiva em js/ui/toast.js (migrar em F1.8)
 function showToast(msg, type = 'info') {
@@ -244,6 +246,7 @@ function getSignificanciaQui2(nums) {
     return { dims, overall: { label, class: cls, level } };
 }
 function updateAnalysis() {
+    internalGamesPanel.invalidate();
     const nums = Array.from(selectedNumbers).sort((a,b) => a - b);
     
     // NOVO: Persiste no localStorage as dezenas atualmente selecionadas
@@ -716,7 +719,7 @@ function processImportBackup(event) {
             if (imported.savedGames && Array.isArray(imported.savedGames)) {
                 validSavedGames = imported.savedGames.filter(game => {
                     if (!game.nums || !Array.isArray(game.nums)) return false;
-                    if (game.nums.length < 15 || game.nums.length > 17) return false;
+                    if (game.nums.length < 15 || game.nums.length > 18) return false;
                     const parsedNums = game.nums.map(Number);
                     if (parsedNums.some(n => isNaN(n) || !Number.isInteger(n) || n < 1 || n > 25)) return false;
                     const uniqueSet = new Set(parsedNums);
@@ -748,6 +751,7 @@ function processImportBackup(event) {
                 setTimeout(async () => {
                     // 1. Restaurar variáveis para memória apenas com os dados filtrados e validados
                     database = validDatabase;
+                    internalGamesPanel.invalidate();
                     historicalStandards = validStandards;
                     mySavedGames = validSavedGames;
                     
@@ -804,7 +808,7 @@ function parseSavedGameLine(line) {
     const cleaned = line.trim();
     if (!cleaned) return null;
     const numbers = cleaned.split(/[\s,;]+/).filter(Boolean).map(Number);
-    if (numbers.length < 15 || numbers.length > 17) return null;
+    if (numbers.length < 15 || numbers.length > 18) return null;
     if (numbers.some(n => isNaN(n) || !Number.isInteger(n) || n < 1 || n > 25)) return null;
     const unique = [...new Set(numbers)];
     if (unique.length !== numbers.length) return null;
@@ -894,7 +898,8 @@ async function importHistory() {
             validCount++;
         });
 
-        database = newDb; 
+        database = newDb;
+        internalGamesPanel.invalidate(); 
         
         // NOVO: Limpa os caches para forçar o recálculo completo da nova base
         systemCache.tableHtml = null;
@@ -1401,6 +1406,7 @@ function generateStructuredConexaoGame() {
 
 function clearBoard() {
     selectedNumbers.clear();
+    internalGamesPanel.invalidate();
     document.querySelectorAll('.ball').forEach(b => { b.classList.remove('selected'); b.setAttribute('aria-pressed', 'false'); });
     localStorage.removeItem('lotoCurrentBoard');
     resetMetrics();
