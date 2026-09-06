@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOTO MAIS FÁCIL - Sistema Analítico Profissional</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; color: #1f2937; }
+        
+        .ball { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; user-select: none; border-width: 2px; position: relative; }
+        
+        /* Heatmap Colors */
+        .heat-hot { background-color: #f97316; border-color: #ea580c; color: white; } 
+        .heat-medium { background-color: #fbbf24; border-color: #d97706; color: white; } 
+        .heat-cold { background-color: #e2e8f0; border-color: #cbd5e1; color: #64748b; } 
+        
+        .delay-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background-color: #ef4444;
+            color: white;
+            font-size: 8px;
+            font-weight: 900;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .ball.selected { 
+            background-color: #1e293b !important; 
+            color: white !important; 
+            transform: scale(1.1) translateY(-4px); 
+            border-color: #10b981 !important;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+
+        .metric-card { background: white; border-radius: 1.25rem; padding: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e5e7eb; }
+        .tab-btn { position: relative; padding: 0.75rem 1rem; font-weight: 700; font-size: 0.875rem; color: #9ca3af; transition: all 0.2s; }
+        .tab-btn.active { color: #10b981; }
+        .tab-btn.active::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: #10b981; border-radius: 10px; }
+        .table-container { max-height: 500px; overflow-y: auto; }
+        .range-btn.active { background-color: #10b981; color: white; border-color: #10b981; }
+        
+        .status-badge { font-size: 8px; font-weight: 900; padding: 2px 6px; border-radius: 99px; text-transform: uppercase; width: 85px; text-align: center; }
+        .status-ok { background-color: #dcfce7; color: #166534; }
+        .status-medio { background-color: #fef9c3; color: #854d0e; }
+        .status-alert { background-color: #fee2e2; color: #991b1b; }
+        
+        #loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 100; backdrop-filter: blur(4px); flex-direction: column; align-items: center; justify-content: center; }
+        
+        .hit-list-item { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); margin: 2px; display: inline-block; }
+        
+        .score-bar-bg { height: 8px; width: 100%; background: #f1f5f9; border-radius: 10px; overflow: hidden; }
+        .score-bar-fill { height: 100%; transition: width 0.8s cubic-bezier(0.17, 0.67, 0.83, 0.67); }
+
+        .tier-badge { font-size: 9px; padding: 2px 8px; border-radius: 6px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; }
+        
+        .saved-game-card { border: 1px solid #e5e7eb; background: white; border-radius: 1.5rem; padding: 1.25rem; transition: all 0.2s; position: relative; }
+        .saved-game-card:hover { border-color: #10b981; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .analysis-point { display: flex; align-items: center; gap: 8px; font-size: 11px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+        .analysis-point:last-child { border-bottom: none; }
+        .point-dot { width: 6px; height: 6px; border-radius: 50%; background: #6366f1; }
+        
+        .freq-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; background: #fff; border-radius: 8px; margin-bottom: 3px; border: 1px solid #f1f5f9; }
+        .freq-item.dominant { border-left: 3px solid #10b981; background: #f0fdf4; }
+        .freq-label { font-size: 10px; font-weight: 600; color: #475569; }
+        .freq-count { font-size: 10px; font-weight: 800; color: #10b981; }
+
+        .dom-indicator { font-size: 8px; font-weight: 900; padding: 1px 6px; border-radius: 4px; text-transform: uppercase; }
+        .dom-forte { background: #dcfce7; color: #166534; }
+        .dom-medio { background: #fef9c3; color: #854d0e; }
+        .dom-fraco { background: #f3f4f6; color: #4b5563; }
+        .metric-avg-label { font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+        .metric-avg-val { font-size: 11px; font-weight: 900; color: #1e293b; }
+
+        /* Estilos Inteligência Estratégica */
+        .rarity-low { color: #10b981; }
+        .rarity-med { color: #f59e0b; }
+        .rarity-high { color: #6366f1; }
+        .risk-low { color: #10b981; }
+        .risk-high { color: #ef4444; }
+
+        /* Estilo Conexões Afinidade */
+        .tab-btn.active-conexoes { color: #ec4899; }
+        .tab-btn.active-conexoes::after { background: #ec4899; }
+        .connection-card { border-left: 4px solid #ec4899; }
+        .behavior-ball { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 9px; font-weight: 900; }
+        .mode-toggle-btn { transition: all 0.2s; border: 1px solid transparent; }
+        .mode-toggle-btn.active { background-color: white; color: #ec4899; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-color: #fce7f3; }
+        
+        /* Estilos Transição */
+        .trans-badge { font-size: 9px; font-weight: 900; color: #6366f1; background: #eef2ff; padding: 2px 6px; border-radius: 4px; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="loading-overlay">
+        <div class="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p id="loading-text" class="font-black text-emerald-600 uppercase tracking-widest text-sm text-center px-4">Calibrando Estratégia...</p>
+    </div>
+
+    <div class="max-w-7xl mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
+            <div>
+                <h1 class="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                    <span class="text-emerald-600">LOTO</span> MAIS FÁCIL
+                </h1>
+                <p class="text-xs text-gray-400 font-bold uppercase tracking-widest italic text-range-desc">v5.2 Affinity Lab</p>
+            </div>
+            <nav class="flex gap-2 bg-white p-1 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto max-w-full">
+                <button onclick="switchTab('simulador')" id="btn-tab-simulador" class="tab-btn active whitespace-nowrap">Simulador</button>
+                <button onclick="switchTab('meus-jogos')" id="btn-tab-meus-jogos" class="tab-btn whitespace-nowrap">Meus Jogos</button>
+                <button onclick="switchTab('analise')" id="btn-tab-analise" class="tab-btn whitespace-nowrap">Análise</button>
+                <button onclick="switchTab('conexoes')" id="btn-tab-conexoes" class="tab-btn whitespace-nowrap">Conexões 13</button>
+                <button onclick="switchTab('sniper')" id="btn-tab-sniper" class="tab-btn whitespace-nowrap">Sniper</button>
+                <button onclick="switchTab('dados')" id="btn-tab-dados" class="tab-btn whitespace-nowrap">Dados</button>
+            </nav>
+        </header>
+
+        <!-- ABA 1: SIMULADOR -->
+        <div id="tab-simulador" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <div class="lg:col-span-7 space-y-6">
+                <!-- Volante Central -->
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
+                    <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-2">
+                        <div class="flex flex-col">
+                            <h2 class="font-black text-gray-700 uppercase text-[10px] tracking-widest text-orange-500 italic mb-1">Simulador Estratégico</h2>
+                            <div class="flex flex-wrap gap-2 items-center">
+                                <span class="flex items-center gap-1 text-[8px] font-black uppercase text-gray-400">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span> Quente
+                                </span>
+                                <span class="flex items-center gap-1 text-[8px] font-black uppercase text-gray-400">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span> Médio
+                                </span>
+                                <span class="flex items-center gap-1 text-[8px] font-black uppercase text-gray-400">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span> Frio
+                                </span>
+                                <span class="flex items-center gap-1 text-[8px] font-black uppercase text-gray-400">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Atraso
+                                </span>
+                                <span class="text-[8px] text-emerald-500 font-bold ml-1 italic opacity-70">(Base: 10 jogos)</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div id="confidence-badge" class="flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100">
+                                <span class="text-[9px] font-black text-emerald-400 uppercase">Aderência:</span>
+                                <span id="confidence-value" class="text-[12px] font-black text-emerald-600">0%</span>
+                            </div>
+                            <div id="counter" class="text-3xl font-black text-slate-800">0 / 17</div>
+                        </div>
+                    </div>
+                    <div id="board" class="grid grid-cols-5 gap-4 mb-6"></div>
+                    <div class="flex flex-col gap-3">
+                        <div class="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                            <button onclick="clearBoard()" class="px-2 py-3 border-2 border-gray-50 rounded-xl text-gray-400 font-bold hover:bg-gray-50 transition-all text-[9px] uppercase tracking-widest">Limpar</button>
+                            <button onclick="generateSmartGame(15)" class="px-2 py-3 bg-emerald-500 text-white rounded-xl font-black shadow-sm text-[9px] uppercase tracking-widest">Smart Auto 15</button>
+                            <button onclick="generateFocusedGame(15, 12)" class="px-2 py-3 bg-orange-500 text-white rounded-xl font-black shadow-sm text-[9px] uppercase tracking-widest">15 (Máx 12)</button>
+                            <button onclick="generateStrictFocusedGame(16, 12)" class="px-2 py-3 bg-violet-600 text-white rounded-xl font-black shadow-sm text-[9px] uppercase tracking-widest">16 (Máx 12)</button>
+                            <button onclick="generateFocusedGame(16, 13)" class="px-2 py-3 bg-indigo-600 text-white rounded-xl font-black shadow-sm text-[9px] uppercase tracking-widest">16 (Máx 13)</button>
+                            <button onclick="optimizeCurrentGame()" id="btn-optimize" class="hidden px-2 py-3 bg-black text-yellow-400 rounded-xl font-black shadow-sm text-[9px] uppercase tracking-widest border border-yellow-400/20 animate-pulse">Otimizar ✨</button>
+                        </div>
+                        <div id="smart-auto-status" class="text-center text-[8px] font-bold text-cyan-600 bg-cyan-50 border border-cyan-100 rounded-xl px-3 py-2">Smart Auto: pesos serão calibrados somente com concursos anteriores.</div>
+                        <button onclick="saveCurrentGame()" class="w-full py-4 bg-gray-900 text-emerald-400 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V4a1 1 0 10-2 0v7.586l-1.293-1.293z"></path><path d="M5 15a2 2 0 002 2h6a2 2 0 002-2v-5a2 2 0 00-2-2H7a2 2 0 00-2 2v5z"></path></svg>
+                            Salvar Jogo na Minha Lista
+                        </button>
+                    </div>
+                </div>
+
+                <div class="metric-card bg-gray-900 text-white border-none overflow-hidden space-y-4">
+                    <h3 class="text-emerald-400 font-bold text-xs uppercase tracking-widest text-center md:text-left italic">Simulação de Prêmios na Base Histórica</h3>
+                    <div class="grid grid-cols-5 gap-2 text-center">
+                        <div class="bg-white/5 p-2 rounded-xl border border-white/5"><p class="text-[9px] text-gray-500 font-bold mb-1">11 Pts</p><p id="hits-11" class="font-black text-lg text-white">0</p></div>
+                        <div class="bg-white/5 p-2 rounded-xl border border-white/5"><p class="text-[9px] text-gray-500 font-bold mb-1">12 Pts</p><p id="hits-12" class="font-black text-lg text-white">0</p></div>
+                        <div class="bg-white/5 p-2 rounded-xl border border-white/5"><p class="text-[9px] text-gray-500 font-bold mb-1">13 Pts</p><p id="hits-13" class="font-black text-lg text-white">0</p></div>
+                        <div class="bg-white/5 p-2 rounded-xl border border-yellow-500/20"><p class="text-[9px] text-yellow-500 font-bold mb-1">14 Pts</p><p id="hits-14" class="font-black text-lg text-yellow-400">0</p></div>
+                        <div class="bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/30"><p class="text-[9px] text-emerald-400 font-bold mb-1">15 Pts</p><p id="hits-15" class="font-black text-lg text-emerald-400">0</p></div>
+                    </div>
+                    <div id="winners-log" class="border-t border-white/10 pt-4 space-y-2 text-[11px]">
+                        <div id="no-winners" class="italic text-gray-600">Selecione números para rastrear concursos.</div>
+                        <div id="list-hits-15" class="hidden"><span class="text-emerald-400 font-bold mr-2">15 PTS:</span><div id="content-15" class="inline"></div></div>
+                        <div id="list-hits-14" class="hidden"><span class="text-yellow-500 font-bold mr-2">14 PTS:</span><div id="content-14" class="inline"></div></div>
+                        <div id="list-hits-13" class="hidden"><span class="text-white font-bold mr-2 text-opacity-50">13 PTS:</span><div id="content-13" class="inline text-gray-400 font-mono"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coluna Direita - DUPLO SCORE E INTELIGÊNCIA -->
+            <div class="lg:col-span-5 space-y-4">
+                
+                <div id="score-card" class="metric-card border-t-8 border-indigo-600 transition-all duration-700">
+                    <div class="flex justify-between items-start mb-4">
+                        <span id="score-tier" class="tier-badge bg-indigo-50 text-indigo-600 inline-block">Aguardando</span>
+                        <div class="text-right">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">Aderência ao Padrão</p>
+                            <span id="score-confidence-ui" class="text-xl font-black text-gray-300">0%</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-6 mb-4">
+                        <div>
+                            <p class="text-[10px] font-black text-gray-400 uppercase mb-2 tracking-tighter">Score Histórico</p>
+                            <div class="flex items-end gap-2 mb-1">
+                                <span id="score-history" class="text-3xl font-black text-slate-800">--</span>
+                                <span class="text-[10px] text-gray-400 font-bold mb-1">/ 100</span>
+                            </div>
+                            <div class="score-bar-bg"><div id="fill-history" class="score-bar-fill bg-emerald-500" style="width: 0%"></div></div>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black text-indigo-600 uppercase mb-2 tracking-tighter italic">Score Estratégico ✨</p>
+                            <div class="flex items-end gap-2 mb-1">
+                                <span id="score-strategy" class="text-3xl font-black text-indigo-700">--</span>
+                                <span class="text-[10px] text-indigo-300 font-bold mb-1">/ 100</span>
+                            </div>
+                            <div class="score-bar-bg bg-indigo-50"><div id="fill-strategy" class="score-bar-fill bg-indigo-600" style="width: 0%"></div></div>
+                        </div>
+                    </div>
+
+                    <!-- Camadas de Inteligência -->
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div class="bg-gray-50 p-3 rounded-2xl border border-gray-100">
+                            <p class="text-[8px] font-black text-gray-400 uppercase mb-1">Raridade Estrutural</p>
+                            <p id="val-rarity" class="text-xs font-black uppercase text-gray-700">Calculando...</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-2xl border border-gray-100">
+                            <p class="text-[8px] font-black text-gray-400 uppercase mb-1">Índice Anti-Crowd</p>
+                            <p id="val-popularity" class="text-xs font-black uppercase text-gray-700">Calculando...</p>
+                        </div>
+                        <div class="bg-indigo-50 p-3 rounded-2xl border border-indigo-100 col-span-2">
+                            <p class="text-[8px] font-black text-indigo-400 uppercase mb-1">Cobertura do Conjunto (Saved)</p>
+                            <p id="val-coverage" class="text-xs font-black text-indigo-700">0% de cobertura real e baixa repetição</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-indigo-900 rounded-xl p-3 mb-4 text-[10px] text-indigo-100 italic font-medium leading-relaxed">
+                        <p id="score-explanation">O Score Estratégico pune jogos óbvios e premia a diversidade do conjunto salvo.</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-2"><p class="text-[9px] font-black text-emerald-600 uppercase flex items-center gap-1">Vantagens</p><ul id="score-positives" class="text-[9px] text-gray-500 space-y-1 pl-1 italic"></ul></div>
+                        <div class="space-y-2"><p class="text-[9px] font-black text-red-500 uppercase flex items-center gap-1">Riscos</p><ul id="score-negatives" class="text-[9px] text-gray-500 space-y-1 pl-1 italic"></ul></div>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-[11px] font-black uppercase tracking-widest text-emerald-600">Diagnóstico Operacional</h2>
+                        <div id="overall-class" class="text-[9px] font-black px-3 py-1 rounded bg-orange-50 text-orange-600 border border-orange-100 hidden uppercase tracking-tighter">Desequilíbrio Geométrico</div>
+                    </div>
+                    <div class="space-y-2.5">
+                        <div class="flex justify-between items-center text-[11px] py-1 border-b border-gray-50"><span class="text-gray-500 font-medium italic">Pares / Ímpares</span><div class="flex items-center gap-4"><span id="val-parity" class="font-black text-gray-700 text-right min-w-[50px]">-</span><span id="status-parity" class="status-badge">---</span></div></div>
+                        <div class="flex justify-between items-center text-[11px] py-1 border-b border-gray-50"><span class="text-gray-500 font-medium italic">Baixos / Altos</span><div class="flex items-center gap-4"><span id="val-highlow" class="font-black text-gray-700 text-right min-w-[50px]">-</span><span id="status-highlow" class="status-badge">---</span></div></div>
+                        <div class="flex justify-between items-center text-[11px] py-1 border-b border-gray-50"><span class="text-gray-500 font-medium italic">Soma Total</span><div class="flex items-center gap-4"><span id="val-sum" class="font-black text-gray-700 text-right min-w-[50px]">-</span><span id="status-sum" class="status-badge">---</span></div></div>
+                        <div class="flex justify-between items-center text-[11px] py-1 border-b border-gray-50"><span class="text-gray-500 font-medium italic">Repete Anterior</span><div class="flex items-center gap-4"><span id="val-repeat" class="font-black text-gray-700 text-right min-w-[50px]">-</span><span id="status-repeat" class="status-badge">---</span></div></div>
+                        <div class="flex justify-between items-center text-[11px] py-1 border-b border-gray-50"><span class="text-emerald-600 font-black uppercase text-[9px]">Números Primos</span><div class="flex items-center gap-4"><span id="val-primes" class="font-black text-gray-700 text-right min-w-[50px]">-</span><span id="status-primes" class="status-badge">---</span></div></div>
+                        <div class="flex justify-between items-center text-[11px] py-1 border-b border-gray-50"><span class="text-emerald-600 font-black uppercase text-[9px]">Moldura</span><div class="flex items-center gap-4"><span id="val-frame" class="font-black text-gray-700 text-right min-w-[50px]">-</span><span id="status-frame" class="status-badge">---</span></div></div>
+                        <div class="flex justify-between items-center text-[11px] py-1 border-b border-gray-50"><span class="text-orange-500 font-black uppercase text-[9px]">Coincidência Máxima</span><div class="flex items-center gap-4"><span id="val-max-coinc" class="font-black text-gray-700 text-right min-w-[50px]">-</span><span id="status-max-coinc" class="status-badge">---</span></div></div>
+                        <div class="flex justify-between items-center text-[11px] py-1"><span class="text-red-500 font-black uppercase text-[9px]">Maior Sequência</span><div class="flex items-center gap-4"><span id="val-max-sequence" class="font-black text-gray-700 text-right min-w-[50px]">-</span><span id="status-max-sequence" class="status-badge">---</span></div></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="metric-card p-4 border-l-4 border-orange-400 text-center"><h4 class="text-[9px] font-black text-gray-400 uppercase mb-2">Quadrantes</h4><div id="dist-quads" class="grid grid-cols-2 gap-1 font-mono text-[11px]"></div></div>
+                    <div class="metric-card p-4 border-l-4 border-blue-500 text-center"><h4 class="text-[9px] font-black text-gray-400 uppercase mb-2">Linhas/Cols</h4><div class="flex flex-col items-center gap-1"><div id="dist-rows" class="text-[9px] font-bold text-gray-400"></div><div id="dist-cols" class="text-[9px] font-bold text-gray-400"></div></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA 2: MEUS JOGOS -->
+        <div id="tab-meus-jogos" class="hidden space-y-6">
+            <div class="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-100 min-h-[400px]">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-gray-50 pb-6">
+                    <div>
+                        <h2 class="text-2xl font-black text-gray-800 uppercase tracking-tighter">Minhas Apostas</h2>
+                        <p class="text-xs text-gray-400 font-bold italic">Jogos salvos: <span id="saved-count" class="text-emerald-600">0</span></p>
+                    </div>
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <input type="file" id="saved-games-import-input" class="hidden" accept=".txt,.csv" onchange="processImportSavedGames(event)">
+                        <button onclick="document.getElementById('saved-games-import-input').click()" class="flex-1 md:flex-none px-6 py-3 bg-yellow-500 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-yellow-100 hover:scale-105 transition-all">Importar Jogos</button>
+                        <button onclick="exportGamesToTxt(',')" class="flex-1 md:flex-none px-6 py-3 bg-emerald-500 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-emerald-100 hover:scale-105 transition-all">Exportar (Vírgula)</button>
+                        <button onclick="exportGamesToTxt(' ')" class="flex-1 md:flex-none px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-indigo-100 hover:scale-105 transition-all">Exportar (Espaço)</button>
+                    </div>
+                </div>
+                <div id="saved-games-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                <div id="empty-saved-msg" class="text-center py-20 text-gray-300 italic text-sm">Sua lista está vazia.</div>
+            </div>
+        </div>
+
+        <!-- ABA 3: ANÁLISE -->
+        <div id="tab-analise" class="hidden space-y-6">
+            
+            <!-- Bloco Principal: Leitura da Base -->
+            <div id="base-pattern-card" class="metric-card border-t-8 border-indigo-500 relative overflow-hidden bg-white shadow-sm">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <div>
+                        <h2 class="text-[10px] font-black uppercase text-indigo-400 tracking-[0.2em] mb-1">Leitura Geral da Base</h2>
+                        <h3 class="text-2xl font-black text-indigo-900 tracking-tighter uppercase flex items-center gap-2">
+                            <span>📊</span> Comportamento Dominante
+                        </h3>
+                    </div>
+                    
+                    <!-- Indicador de volume da amostra -->
+                    <div class="text-left md:text-right bg-indigo-50 p-4 rounded-2xl border border-indigo-100 flex flex-col justify-center min-w-[150px]">
+                        <p class="text-[10px] font-bold text-indigo-400 uppercase mb-1">Tamanho da Amostra</p>
+                        <div class="flex items-end justify-between md:justify-end gap-2">
+                            <span id="base-reliability" class="text-2xl font-black text-indigo-600 tracking-tighter">0 conc.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="base-reliability-fill" class="hidden"></div>
+
+                <!-- Bloco de Interpretação -->
+                <div class="bg-indigo-50/40 p-5 rounded-2xl border border-indigo-100/50 mb-8 flex items-start gap-3">
+                    <div class="mt-0.5 text-indigo-400">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+                    </div>
+                    <p id="base-interpretation" class="text-xs text-indigo-900 leading-relaxed font-medium italic">Sincronize os dados para iniciar o mapeamento histórico da base.</p>
+                </div>
+
+                <!-- Grade de Cards Analíticos -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Card 1: Soma -->
+                    <div class="bg-gray-50 hover:bg-white transition-colors rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col h-full">
+                        <div class="flex justify-between items-center mb-4"><h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Soma Total</h4><div id="dom-sums"></div></div>
+                        <div id="freq-sums" class="space-y-1.5 flex-1"></div>
+                        <div class="mt-4 flex justify-between items-center pt-3 border-t border-gray-100"><span class="metric-avg-label">Média</span><span id="avg-sums" class="metric-avg-val">--</span></div>
+                    </div>
+                    
+                    <!-- Card 2: Repetição -->
+                    <div class="bg-gray-50 hover:bg-white transition-colors rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col h-full">
+                        <div class="flex justify-between items-center mb-4"><h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Repetição Anterior</h4><div id="dom-repeats"></div></div>
+                        <div id="freq-repeats" class="space-y-1.5 flex-1"></div>
+                        <div class="mt-4 flex justify-between items-center pt-3 border-t border-gray-100"><span class="metric-avg-label">Média</span><span id="avg-repeats" class="metric-avg-val">--</span></div>
+                    </div>
+
+                    <!-- Card 3: Pares/Ímpares -->
+                    <div class="bg-gray-50 hover:bg-white transition-colors rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col h-full">
+                        <div class="flex justify-between items-center mb-4"><h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Pares / Ímpares</h4><div id="dom-parity"></div></div>
+                        <div id="freq-parity" class="space-y-1.5 flex-1"></div>
+                        <div class="mt-4 flex justify-between items-center pt-3 border-t border-gray-100"><span class="metric-avg-label">Média (Pares)</span><span id="avg-parity" class="metric-avg-val">--</span></div>
+                    </div>
+
+                    <!-- Card 4: Baixos/Altos -->
+                    <div class="bg-gray-50 hover:bg-white transition-colors rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col h-full">
+                        <div class="flex justify-between items-center mb-4"><h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Baixos / Altos</h4><div id="dom-highlow"></div></div>
+                        <div id="freq-highlow" class="space-y-1.5 flex-1"></div>
+                        <div class="mt-4 flex justify-between items-center pt-3 border-t border-gray-100"><span class="metric-avg-label">Média (Baixos)</span><span id="avg-highlow" class="metric-avg-val">--</span></div>
+                    </div>
+
+                    <!-- Card 5: Primos -->
+                    <div class="bg-gray-50 hover:bg-white transition-colors rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col h-full">
+                        <div class="flex justify-between items-center mb-4"><h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Números Primos</h4><div id="dom-primes"></div></div>
+                        <div id="freq-primes" class="space-y-1.5 flex-1"></div>
+                        <div class="mt-4 flex justify-between items-center pt-3 border-t border-gray-100"><span class="metric-avg-label">Média</span><span id="avg-primes" class="metric-avg-val">--</span></div>
+                    </div>
+
+                    <!-- Card 6: Sequência -->
+                    <div class="bg-gray-50 hover:bg-white transition-colors rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col h-full">
+                        <div class="flex justify-between items-center mb-4"><h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Maior Sequência</h4><div id="dom-sequence"></div></div>
+                        <div id="freq-sequence" class="space-y-1.5 flex-1"></div>
+                        <div class="mt-4 flex justify-between items-center pt-3 border-t border-gray-100"><span class="metric-avg-label">Média</span><span id="avg-sequence" class="metric-avg-val">--</span></div>
+                    </div>
+
+                    <!-- Card 7: Moldura -->
+                    <div class="bg-gray-50 hover:bg-white transition-colors rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col h-full">
+                        <div class="flex justify-between items-center mb-4"><h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Moldura</h4><div id="dom-moldura"></div></div>
+                        <div id="freq-moldura" class="space-y-1.5 flex-1"></div>
+                        <div class="mt-4 flex justify-between items-center pt-3 border-t border-gray-100"><span class="metric-avg-label">Média</span><span id="avg-moldura" class="metric-avg-val">--</span></div>
+                    </div>
+
+                    <!-- Card 8: Linhas -->
+                    <div class="bg-gray-50 hover:bg-white transition-colors rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col h-full">
+                        <div class="flex justify-between items-center mb-4"><h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Configuração Linhas</h4><div id="dom-rows"></div></div>
+                        <div id="freq-rows" class="space-y-1.5 flex-1"></div>
+                        <div class="mt-4 flex justify-between items-center pt-3 border-t border-gray-100"><span class="metric-avg-label">Dispersão</span><span id="disp-rows" class="text-[10px] font-black text-gray-400">--</span></div>
+                    </div>
+
+                    <!-- Card 9: Colunas -->
+                    <div class="bg-gray-50 hover:bg-white transition-colors rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col h-full">
+                        <div class="flex justify-between items-center mb-4"><h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Configuração Colunas</h4><div id="dom-cols"></div></div>
+                        <div id="freq-cols" class="space-y-1.5 flex-1"></div>
+                        <div class="mt-4 flex justify-between items-center pt-3 border-t border-gray-100"><span class="metric-avg-label">Dispersão</span><span id="disp-cols" class="text-[10px] font-black text-gray-400">--</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Área de Tendência Histórica -->
+            <div class="metric-card p-0 overflow-hidden bg-white shadow-sm border border-gray-200">
+                <div class="p-5 md:p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center bg-gray-50 gap-4">
+                    <div>
+                        <h3 class="font-black text-sm text-gray-800 uppercase tracking-tight">Análise de Tendência Histórica</h3>
+                        <p class="text-[10px] font-bold text-gray-400 mt-1">
+                            Exibindo: <span id="active-range-label" class="text-emerald-600 uppercase">Tudo</span>
+                            <span class="mx-2 opacity-50">|</span>
+                            Média Máx. Coinc.: <span id="avg-max-coinc" class="text-orange-500 font-black">--</span>
+                            <span class="mx-2 opacity-50">|</span>
+                            Média 12pts: <span id="avg-max-coinc-12" class="text-teal-500 font-black">--</span>
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm">
+                        <button onclick="updateAnalysisRange(0)" id="range-0" class="range-btn active px-4 py-1.5 text-[10px] font-black rounded-lg border border-transparent uppercase transition-all">Tudo</button>
+                        <button onclick="updateAnalysisRange(10)" id="range-10" class="range-btn px-4 py-1.5 text-[10px] font-black rounded-lg border border-transparent uppercase transition-all text-gray-500 hover:bg-gray-50">10</button>
+                        <button onclick="updateAnalysisRange(25)" id="range-25" class="range-btn px-4 py-1.5 text-[10px] font-black rounded-lg border border-transparent uppercase transition-all text-gray-500 hover:bg-gray-50">25</button>
+                        <button onclick="updateAnalysisRange(50)" id="range-50" class="range-btn px-4 py-1.5 text-[10px] font-black rounded-lg border border-transparent uppercase transition-all text-gray-500 hover:bg-gray-50">50</button>
+                    </div>
+                </div>
+                <div class="table-container relative">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-white text-[10px] font-black text-gray-400 uppercase sticky top-0 z-10 shadow-sm">
+                            <tr>
+                                <th class="p-4 border-b border-gray-100">Nº</th>
+                                <th class="p-4 border-b border-gray-100 text-center">Dezenas</th>
+                                <th class="p-4 border-b border-gray-100 text-center">Rep.</th>
+                                <th class="p-4 border-b border-gray-100 text-center">Soma</th>
+                                <th class="p-4 border-b border-gray-100 text-center">Máx. Coinc.</th>
+                                <th class="p-4 border-b border-gray-100 text-center">12 pts</th>
+                                <th class="p-4 border-b border-gray-100 text-center">Seq.</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" class="text-xs font-medium bg-white">
+                            <!-- Conteúdo injetado via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA NOVA: CONEXÕES 13 -->
+        <div id="tab-conexoes" class="hidden space-y-6">
+            <div class="metric-card border-t-8 border-pink-500">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <div>
+                        <h2 class="text-2xl font-black text-gray-800 tracking-tighter uppercase">🔗 Afinidades Estruturais</h2>
+                        <p class="text-xs text-gray-400 font-bold italic">Mapeamento de afinidade entre concursos por nível de acerto</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <!-- SELETOR DE MODO 12/13 -->
+                        <div class="flex bg-gray-100 p-1 rounded-xl border border-gray-200 shadow-inner">
+                            <button onclick="changeConexaoMode(12)" id="btn-mode-12" class="mode-toggle-btn px-4 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-widest">12 Pontos</button>
+                            <button onclick="changeConexaoMode(13)" id="btn-mode-13" class="mode-toggle-btn active px-4 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-widest">13 Pontos</button>
+                        </div>
+                        <button onclick="generateStructuredConexaoGame()" id="btn-gen-structured" class="hidden px-4 py-2 bg-pink-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-pink-100 hover:scale-105 transition-all">Gerar Jogo Estruturado ✨</button>
+                        <div class="bg-pink-50 px-4 py-2 rounded-xl border border-pink-100">
+                            <span id="connections-count" class="text-xl font-black text-pink-600">0</span>
+                            <span class="text-[9px] font-black text-pink-400 uppercase ml-1">Pares Encontrados</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-pink-900 rounded-2xl p-5 mb-8 text-[11px] text-pink-100 italic leading-relaxed shadow-lg shadow-pink-100">
+                    Este módulo paralelo analisa exclusivamente pares de concursos na base de dados que compartilham o nível de afinidade selecionado (12 ou 13 pontos). É uma ferramenta de estudo de repetição estrutural profunda que não interfere no Score Estratégico principal.
+                </div>
+
+                <!-- NOVO: RESUMO DE COMPORTAMENTO DAS DEZENAS -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-gray-50 p-5 rounded-3xl border border-gray-100">
+                        <h3 class="text-[10px] font-black text-pink-600 uppercase tracking-widest mb-4">Núcleo Fixo (Permanência)</h3>
+                        <p class="text-[9px] text-gray-400 font-bold italic mb-3">Dezenas mais frequentes nos pontos comuns:</p>
+                        <div id="behavior-permanencia" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <div class="bg-gray-50 p-5 rounded-3xl border border-gray-100">
+                        <h3 class="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-4">Dezenas de Rotação (Entrada)</h3>
+                        <p class="text-[9px] text-gray-400 font-bold italic mb-3">Dezenas que flutuam nas posições diferentes:</p>
+                        <div id="behavior-entrada" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <div class="bg-gray-50 p-5 rounded-3xl border border-gray-100">
+                        <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Zona de Exclusão (Saída)</h3>
+                        <p class="text-[9px] text-gray-400 font-bold italic mb-3">Dezenas mais ausentes nestes pares:</p>
+                        <div id="behavior-saida" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+                
+                <!-- 🚀 NOVA ÁREA: MAPEAMENTO DE TRANSIÇÃO (N-1 -> N) -->
+                <div class="bg-white border-2 border-indigo-50 rounded-3xl p-6 mb-8">
+                    <div class="flex items-center gap-3 mb-6">
+                        <h3 class="text-sm font-black text-indigo-900 uppercase tracking-tight">🔄 Mapeamento de Transição Comportamental (Cronológico)</h3>
+                        <span class="text-[8px] font-bold text-indigo-400 bg-indigo-50 px-2 py-1 rounded">ANÁLISE N-1 → N</span>
+                    </div>
+                    
+                    <div id="transition-summary" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+                        <!-- Conteúdo gerado via JS -->
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-50">
+                        <div class="bg-emerald-50/30 p-4 rounded-2xl border border-emerald-100/50">
+                            <h4 class="text-[9px] font-black text-emerald-600 uppercase mb-3 tracking-widest flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Saltos de Entrada Mais Prováveis
+                            </h4>
+                            <div id="trans-entries" class="flex flex-wrap gap-1.5"></div>
+                        </div>
+                        <div class="bg-rose-50/30 p-4 rounded-2xl border border-rose-100/50">
+                            <h4 class="text-[9px] font-black text-rose-600 uppercase mb-3 tracking-widest flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Dezenas que tendem a sair (Evasão)
+                            </h4>
+                            <div id="trans-exits" class="flex flex-wrap gap-1.5"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="conexoes-results" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto pr-2">
+                    <div class="col-span-full text-center py-20 text-gray-300 italic">Varrendo conexões...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA NOVA: SNIPER -->
+        <div id="tab-sniper" class="hidden space-y-6">
+            
+            <!-- BLOCO 1: Configuração do Teste -->
+            <div class="metric-card border-t-8 border-red-500">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-gray-50 pb-6">
+                    <div>
+                        <h2 class="text-2xl font-black text-gray-800 tracking-tighter uppercase">🎯 Sniper</h2>
+                        <p class="text-xs text-gray-400 font-bold italic">Módulo de validação retroativa, controle aleatório e backtest walk-forward</p>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                    <div class="flex flex-col">
+                        <label for="sniper-period" class="text-[9px] font-black text-gray-400 uppercase mb-1">Período de Teste</label>
+                        <select id="sniper-period" class="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl focus:ring-red-500 focus:border-red-500 block w-full p-2.5 outline-none transition-colors">
+                            <option value="10">Últimos 10 concursos</option>
+                            <option value="30">Últimos 30 concursos</option>
+                            <option value="50" selected>Últimos 50 concursos</option>
+                            <option value="100">Últimos 100 concursos</option>
+                            <option value="250">Últimos 250 concursos</option>
+                            <option value="500">Últimos 500 concursos</option>
+                            <option value="1000">Últimos 1.000 concursos</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="sniper-strategy" class="text-[9px] font-black text-gray-400 uppercase mb-1">Estratégia Base</label>
+                        <select id="sniper-strategy" class="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl focus:ring-red-500 focus:border-red-500 block w-full p-2.5 outline-none transition-colors">
+                            <option value="smartAuto" selected>Smart Auto (Nested WF)</option>
+                            <option value="smart">Smart Fixo (Pesos v3)</option>
+                            <option value="random">Aleatório puro (Controle)</option>
+                            <option value="focado12">Focado 15 (Máx 12)</option>
+                            <option value="focado13">Focado 15 (Máx 13)</option>
+                            <option value="conexoes">Conexões 13 (Estruturado)</option>
+                        </select>
+                        <p class="text-[7px] font-bold text-gray-400 mt-1 leading-tight">Comparação do Sniper usa apostas simples de 15 dezenas. O gerador de 16 dezenas do Simulador fica fora para não distorcer custo/probabilidade.</p>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="sniper-games-count" class="text-[9px] font-black text-gray-400 uppercase mb-1">Jogos por Concurso</label>
+                        <select id="sniper-games-count" class="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl focus:ring-red-500 focus:border-red-500 block w-full p-2.5 outline-none transition-colors">
+                            <option value="1">1 jogo (Simples)</option>
+                            <option value="3">3 jogos (Recomendado)</option>
+                            <option value="5">5 jogos (Agressivo)</option>
+                        </select>
+                    </div>
+                    <button id="btn-run-sniper" onclick="runSniperBacktest()" class="w-full p-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        Executar Backtest
+                    </button>
+                </div>
+            </div>
+
+            <!-- BLOCOS 2, 3 e 4: Resumo, Comparativo e Robustez -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Coluna Esquerda: Resumo de Performance -->
+                <div class="lg:col-span-7 space-y-4">
+                    <div class="metric-card h-full flex flex-col">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-[11px] font-black uppercase tracking-widest text-gray-700">Resumo de Performance</h3>
+                            <span id="sniper-status-badge" class="text-[8px] font-black bg-gray-100 text-gray-400 px-2 py-1 rounded uppercase border border-gray-200">Aguardando Teste</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                            <div class="bg-gray-50 p-3 rounded-2xl border border-gray-100 text-center">
+                                <p class="text-[8px] font-black text-gray-400 uppercase mb-1">Média Acertos</p>
+                                <p id="sniper-avg-hits" class="text-2xl font-black text-gray-800">--</p>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-2xl border border-gray-100 text-center">
+                                <p class="text-[8px] font-black text-gray-400 uppercase mb-1">Melhor Jogo</p>
+                                <p id="sniper-best-hit" class="text-2xl font-black text-gray-800">--</p>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-2xl border border-gray-100 text-center col-span-2 sm:col-span-2 flex flex-col justify-center">
+                                <p class="text-[8px] font-black text-gray-400 uppercase mb-1">Setup do Teste</p>
+                                <p id="sniper-setup-info" class="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Nenhum teste rodado</p>
+                            </div>
+                        </div>
+
+                        <div class="mt-auto">
+                            <h4 class="text-[9px] font-black text-gray-400 uppercase mb-3 tracking-widest border-b border-gray-50 pb-2">Premiações Simuladas</h4>
+                            <div class="grid grid-cols-3 gap-2 text-center">
+                                <div class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 transition-all">
+                                    <p class="text-[9px] text-indigo-400 font-bold mb-1">11+ Pts</p>
+                                    <p id="sniper-hits-11plus" class="font-black text-xl text-indigo-600">0</p>
+                                </div>
+                                <div class="bg-yellow-50/50 p-3 rounded-xl border border-yellow-100 transition-all">
+                                    <p class="text-[9px] text-yellow-600 font-bold mb-1">12+ Pts</p>
+                                    <p id="sniper-hits-12plus" class="font-black text-xl text-yellow-600">0</p>
+                                </div>
+                                <div class="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100 transition-all">
+                                    <p class="text-[9px] text-emerald-500 font-bold mb-1">13+ Pts</p>
+                                    <p id="sniper-hits-13plus" class="font-black text-xl text-emerald-600">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coluna Direita: Comparativo e Robustez -->
+                <div class="lg:col-span-5 space-y-4">
+                    <!-- Bloco de Leitura de Robustez -->
+                    <div class="metric-card border-t-4 border-gray-200">
+                        <h3 class="text-[10px] font-black text-gray-400 uppercase mb-3 tracking-widest flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Diagnóstico de Robustez
+                        </h3>
+                        <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                            <p id="sniper-robustness-text" class="text-[11px] text-gray-500 italic font-medium leading-relaxed">
+                                Execute um backtest para avaliar se a estratégia selecionada sobrevive à variância natural dos sorteios recentes.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Bloco de Comparativo -->
+                    <div class="metric-card border-t-4 border-gray-200">
+                        <h3 class="text-[10px] font-black text-gray-400 uppercase mb-3 tracking-widest flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                            Comparativo de Estratégias
+                        </h3>
+                        <div id="sniper-comparative-container">
+                            <div class="flex items-center justify-center p-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                <p class="text-[9px] text-gray-400 uppercase font-bold text-center leading-relaxed">Nenhum dado comparativo.<br>Área reservada para iterações futuras.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BLOCO 4.4: Raio-X do Focado 13 -->
+            <div id="sniper-focused13-audit-block" class="metric-card border-t-4 border-pink-500 hidden">
+                <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="text-[11px] font-black uppercase tracking-widest text-gray-700">🧬 Raio-X do Focado 13</h3>
+                        <p class="text-[10px] font-bold text-gray-400 mt-1">Teste pareado do teto Máx 13 e de três formas de escolher entre candidatos válidos.</p>
+                    </div>
+                    <span class="text-[8px] font-black uppercase tracking-wider text-pink-700 bg-pink-50 border border-pink-100 px-2 py-1 rounded">Mesmo pool · sem olhar o alvo</span>
+                </div>
+                <div id="sniper-focused13-audit-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="col-span-full flex items-center justify-center p-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                        <p class="text-[9px] text-gray-400 uppercase font-bold text-center leading-relaxed">Selecione Focado 13 no Sniper para auditar a regra e as afinidades.</p>
+                    </div>
+                </div>
+                <div id="sniper-focused13-audit-note" class="mt-4 text-[9px] leading-relaxed text-gray-400 font-medium bg-gray-50 border border-gray-100 rounded-xl p-3">
+                    Afinidade alta/baixa mede quantos concursos anteriores compartilham exatamente 13 dezenas com o candidato. Estrutura usa soma, pares e sequência derivados apenas do passado.
+                </div>
+            </div>
+
+            <!-- BLOCO 4.4B: Validação por blocos do Focado 13 -->
+            <div id="sniper-focused13-blocks-block" class="metric-card border-t-4 border-slate-500 hidden">
+                <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="text-[11px] font-black uppercase tracking-widest text-gray-700">🧱 Validação por Blocos — Focado 13</h3>
+                        <p class="text-[10px] font-bold text-gray-400 mt-1">Três períodos de alvos não sobrepostos para verificar se o efeito persiste fora de uma única janela recente.</p>
+                    </div>
+                    <span class="text-[8px] font-black uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 px-2 py-1 rounded">3 × até 1.000 alvos</span>
+                </div>
+                <div id="sniper-focused13-blocks-container">
+                    <div class="p-8 text-center text-gray-400 text-[9px] font-bold bg-gray-50 rounded-2xl border border-dashed border-gray-200">Disponível no perfil Focado 13 com teste de 1.000 concursos.</div>
+                </div>
+                <div id="sniper-focused13-blocks-note" class="mt-4 text-[9px] leading-relaxed text-gray-400 font-medium bg-gray-50 border border-gray-100 rounded-xl p-3">
+                    Os alvos de cada bloco não se repetem. O histórico de treino continua respeitando apenas concursos anteriores a cada alvo.
+                </div>
+            </div>
+
+            <!-- BLOCO 4.4C: Laboratório isolado de Afinidade 13 -->
+            <div id="sniper-affinity13-lab-block" class="metric-card border-t-4 border-fuchsia-500">
+                <div class="flex flex-col xl:flex-row xl:items-end justify-between gap-4 mb-4">
+                    <div class="max-w-3xl">
+                        <h3 class="text-[11px] font-black uppercase tracking-widest text-gray-700">⚖️ Duelo de Afinidade 13 — Laboratório</h3>
+                        <p class="text-[10px] font-bold text-gray-400 mt-1">Teste isolado: jogos equilibrados que nunca fizeram 13 contra jogos de afinidade mediana e alta. Nenhum gerador principal é alterado.</p>
+                    </div>
+                    <span class="text-[8px] font-black uppercase tracking-wider text-fuchsia-700 bg-fuchsia-50 border border-fuchsia-100 px-2 py-1 rounded">ZERO13 × NEUTRO13 × HIGH13</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 p-3 bg-gray-50 border border-gray-100 rounded-2xl mb-4">
+                    <div>
+                        <label for="affinity13-seeds" class="text-[8px] font-black text-gray-400 uppercase mb-1 block">Seeds independentes</label>
+                        <select id="affinity13-seeds" class="w-full bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl p-2.5 outline-none">
+                            <option value="4">4 seeds · rápido</option>
+                            <option value="8" selected>8 seeds · recomendado</option>
+                            <option value="12">12 seeds · robusto</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="affinity13-games" class="text-[8px] font-black text-gray-400 uppercase mb-1 block">Jogos por alvo/seed</label>
+                        <select id="affinity13-games" class="w-full bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl p-2.5 outline-none">
+                            <option value="1">1 jogo</option>
+                            <option value="3" selected>3 jogos</option>
+                            <option value="5">5 jogos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="affinity13-pool" class="text-[8px] font-black text-gray-400 uppercase mb-1 block">Universo equilibrado</label>
+                        <select id="affinity13-pool" class="w-full bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl p-2.5 outline-none">
+                            <option value="6000">6.000 candidatos</option>
+                            <option value="10000" selected>10.000 candidatos</option>
+                            <option value="12000">12.000 candidatos</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button id="btn-run-affinity13" onclick="runAffinity13Lab()" class="w-full p-2.5 bg-fuchsia-600 hover:bg-fuchsia-700 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-fuchsia-100 transition-all">Executar duelo 13</button>
+                    </div>
+                </div>
+
+                <div id="affinity13-progress-wrap" class="hidden mb-4">
+                    <div class="flex justify-between items-center mb-1"><span id="affinity13-progress-label" class="text-[8px] font-black uppercase text-fuchsia-600">Preparando...</span><span id="affinity13-progress-pct" class="text-[8px] font-black text-gray-400">0%</span></div>
+                    <div class="h-2 bg-gray-100 rounded-full overflow-hidden"><div id="affinity13-progress-bar" class="h-full bg-fuchsia-500 rounded-full transition-all" style="width:0%"></div></div>
+                </div>
+
+                <div id="affinity13-verdict" class="mb-4 p-4 bg-gray-50 border border-gray-100 rounded-2xl">
+                    <p class="text-[9px] font-black uppercase text-gray-500">Aguardando teste</p>
+                    <p class="text-[9px] text-gray-400 font-medium mt-1">O laboratório usa três blocos temporais sem alvos repetidos e várias seeds. A decisão só favorece ZERO13 ou HIGH13 se o ganho sobreviver ao neutro.</p>
+                </div>
+
+                <div id="affinity13-summary" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+                    <div class="col-span-full p-7 text-center text-[9px] font-bold text-gray-400 bg-gray-50 border border-dashed border-gray-200 rounded-2xl">Execute o duelo para comparar afinidade de 13 sem alterar os demais motores.</div>
+                </div>
+                <div id="affinity13-comparison" class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"></div>
+                <div id="affinity13-blocks" class="grid grid-cols-1 lg:grid-cols-3 gap-3"></div>
+                <div id="affinity13-note" class="mt-4 text-[9px] leading-relaxed text-gray-400 font-medium bg-gray-50 border border-gray-100 rounded-xl p-3">
+                    Controle do experimento: todos os candidatos ZERO/NEUTRO/HIGH obedecem à mesma regra estrutural fixa e não possuem coincidência histórica 14/15. ZERO13 tem afinidade 13 = 0; NEUTRO13 usa a faixa mediana; HIGH13 usa o top 5% de afinidade. O aleatório puro aparece apenas como referência externa.
+                </div>
+            </div>
+
+            <!-- BLOCO 4.5: Raio-X do Smart por Ablação -->
+            <div id="sniper-smart-audit-block" class="metric-card border-t-4 border-violet-500">
+                <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="text-[11px] font-black uppercase tracking-widest text-gray-700">🧪 Raio-X do Smart</h3>
+                        <p class="text-[10px] font-bold text-gray-400 mt-1">Ablação pareada: Smart completo versus o mesmo motor sem um componente por vez.</p>
+                    </div>
+                    <span class="text-[8px] font-black uppercase tracking-wider text-violet-600 bg-violet-50 border border-violet-100 px-2 py-1 rounded">Full − Sem componente</span>
+                </div>
+                <div id="sniper-component-impact-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div class="col-span-full flex items-center justify-center p-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                        <p class="text-[9px] text-gray-400 uppercase font-bold text-center leading-relaxed">Execute o Sniper para descobrir quais sinais do Smart ajudam, são neutros ou atrapalham na amostra.</p>
+                    </div>
+                </div>
+                <div id="sniper-component-impact-note" class="mt-4 text-[9px] leading-relaxed text-gray-400 font-medium bg-gray-50 border border-gray-100 rounded-xl p-3">
+                    A leitura usa a diferença pareada da melhor pontuação por concurso. Intervalos que cruzam zero são tratados como inconclusivos.
+                </div>
+            </div>
+
+            <!-- BLOCO 4.7: Auto-Calibração Nested Walk-Forward -->
+            <div id="sniper-smart-calibration-block" class="metric-card border-t-4 border-cyan-500">
+                <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="text-[11px] font-black uppercase tracking-widest text-gray-700">🎛️ Auto-Calibração Nested</h3>
+                        <p class="text-[10px] font-bold text-gray-400 mt-1">Cada alvo recebe pesos escolhidos apenas em concursos anteriores; Smart Fixo permanece como controle interno.</p>
+                    </div>
+                    <span class="text-[8px] font-black uppercase tracking-wider text-cyan-700 bg-cyan-50 border border-cyan-100 px-2 py-1 rounded">Sem olhar o alvo</span>
+                </div>
+                <div id="sniper-calibration-container">
+                    <div class="flex items-center justify-center p-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                        <p class="text-[9px] text-gray-400 uppercase font-bold text-center leading-relaxed">Execute o Sniper para calibrar e auditar os pesos do Smart.</p>
+                    </div>
+                </div>
+                <div id="sniper-calibration-note" class="mt-4 text-[9px] leading-relaxed text-gray-400 font-medium bg-gray-50 border border-gray-100 rounded-xl p-3">
+                    O ajuste usa uma janela interna walk-forward e regularização contra os pesos fixos para reduzir overfitting.
+                </div>
+            </div>
+
+            <!-- BLOCO 5: Tabela de Histórico do Backtest -->
+            <div class="metric-card p-0 overflow-hidden bg-white shadow-sm border border-gray-200">
+                <div class="p-5 border-b border-gray-100 bg-gray-50">
+                    <h3 class="font-black text-sm text-gray-800 uppercase tracking-tight">Log de Sorteios (Backtest)</h3>
+                    <p class="text-[10px] font-bold text-gray-400 mt-1">Detalhamento concurso a concurso da simulação</p>
+                </div>
+                <div class="table-container relative max-h-[400px] overflow-y-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-white text-[9px] font-black text-gray-400 uppercase sticky top-0 z-10 shadow-sm">
+                            <tr>
+                                <th class="p-3 border-b border-gray-100">Conc. Real</th>
+                                <th class="p-3 border-b border-gray-100 text-center">Setup</th>
+                                <th class="p-3 border-b border-gray-100 text-center">Melhor Jogo Gerado</th>
+                                <th class="p-3 border-b border-gray-100 text-center">Acerto Máx.</th>
+                                <th class="p-3 border-b border-gray-100 text-center">Situação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sniper-history-body" class="text-xs font-medium bg-white">
+                            <tr>
+                                <td colspan="5" class="p-12 text-center text-gray-300 italic text-[11px] font-bold">Aguardando execução do módulo Sniper...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- F4.8 — Histórico de Backtest Anteriores -->
+            <div class="metric-card p-0 overflow-hidden bg-white shadow-sm border border-gray-200">
+                <div class="p-5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                    <div>
+                        <h3 class="font-black text-sm text-gray-800 uppercase tracking-tight">Histórico de Simulações</h3>
+                        <p class="text-[10px] font-bold text-gray-400 mt-1">Backtests anteriores gravados localmente</p>
+                    </div>
+                    <span id="historico-backtest-count" class="text-[9px] font-black text-gray-400 bg-gray-100 px-2 py-1 rounded border border-gray-200">0 registros</span>
+                </div>
+                <div id="historico-backtest-container" class="divide-y divide-gray-50 max-h-[320px] overflow-y-auto">
+                    <div class="p-8 text-center text-gray-300 text-[11px] font-bold italic">Nenhum backtest salvo ainda. Rode uma simulação para começar.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA 4: DADOS -->
+        <div id="tab-dados" class="hidden">
+            <div class="metric-card">
+                <h2 class="text-xl font-black mb-4 uppercase text-gray-700">Manutenção da Base</h2>
+                <label for="raw-data" class="text-[9px] font-black text-gray-400 uppercase mb-1 block">Dados dos Concursos</label>
+                <textarea id="raw-data" class="w-full h-80 p-4 font-mono text-xs border rounded-2xl focus:ring-2 focus:ring-emerald-500 mb-4"></textarea>
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <p class="text-xs font-bold text-gray-400 uppercase w-full sm:w-auto">Total: <span id="total-contests" class="text-emerald-600">0</span> concursos.</p>
+                    <div class="flex gap-2 w-full sm:w-auto justify-end">
+                        <input type="file" id="backup-input" class="hidden" accept=".json" onchange="processImportBackup(event)">
+                        <button onclick="document.getElementById('backup-input').click()" class="px-4 py-3 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all hover:bg-indigo-100">Importar Backup</button>
+                        <button onclick="exportBackup()" class="px-4 py-3 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all hover:bg-indigo-100">Exportar Backup</button>
+                        <button onclick="exportarIDB()" class="px-4 py-3 bg-violet-50 text-violet-600 border border-violet-100 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all hover:bg-violet-100">Exportar IDB</button>
+                        <button onclick="importHistory()" class="px-8 py-3 bg-gray-900 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all hover:bg-black">Atualizar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="js/main.js?v=5.2.0"></script>
+
+    <!-- Modal de confirmação (F0.4 — substitui confirm() nativo) -->
+    <div id="confirm-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.55);align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:12px;padding:28px 32px;max-width:480px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.25);font-family:inherit">
+            <p id="confirm-modal-msg" style="margin:0 0 24px;font-size:15px;color:#1e293b;line-height:1.55"></p>
+            <div style="display:flex;justify-content:flex-end;gap:12px">
+                <button id="confirm-modal-cancel"
+                    style="padding:9px 20px;border-radius:8px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;font-weight:600;cursor:pointer;font-size:14px">
+                    Cancelar
+                </button>
+                <button id="confirm-modal-ok"
+                    style="padding:9px 20px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-weight:700;cursor:pointer;font-size:14px">
+                    Substituir dados
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
