@@ -121,6 +121,7 @@
         .internal-panel th, .internal-panel td { text-align:left; padding:.6rem; border-bottom:1px solid #e2e8f0; }
         .internal-panel th { background:#f1f5f9; }
         .internal-numbers { font-family:monospace; min-width:14rem; }
+     #portfolio-panel input[type="text"] {font:inherit;max-width:100%;width:160px;padding:.6rem;border:1px solid #94a3b8;border-radius:.5rem;}
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -136,7 +137,7 @@
                 <h1 class="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-2">
                     <span class="text-emerald-600">LOTO</span> MAIS FÁCIL
                 </h1>
-                <p class="text-xs text-gray-400 font-bold uppercase tracking-widest italic text-range-desc">v5.3 Combinações Internas</p>
+                <p class="text-xs text-gray-400 font-bold uppercase tracking-widest italic text-range-desc">v5.4 Carteira por Orçamento</p>
             </div>
             <nav class="flex gap-2 bg-white p-1 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto max-w-full">
                 <button onclick="switchTab('simulador')" id="btn-tab-simulador" class="tab-btn active whitespace-nowrap">Simulador</button>
@@ -198,6 +199,37 @@
                         </button>
                     </div>
                 </div>
+
+                <section id="portfolio-panel" class="internal-panel" aria-labelledby="portfolio-title" aria-busy="false">
+                    <h2 id="portfolio-title">Carteira por orçamento</h2>
+                    <p>Gere jogos simples distintos e amplie a cobertura de 13 ou mais pontos dentro do valor escolhido.</p>
+                    <div class="internal-actions">
+                        <label>Orçamento total (R$)<br><input id="portfolio-budget" type="text" inputmode="decimal" value="35,00"></label>
+                        <label>Preço do jogo simples (R$)<br><input id="portfolio-price" type="text" inputmode="decimal" value="3,50"></label>
+                    </div>
+                    <p class="internal-note">Preço editável: confira o valor vigente antes de apostar. Limite de 200 jogos novos por geração.</p>
+                    <label><input id="portfolio-saved" type="checkbox"> Incluir todos os jogos salvos como apostas deste concurso, dentro do orçamento total</label>
+                    <p class="internal-note">Jogos salvos de 16, 17 e 18 dezenas são desdobrados em combinações de 15. Repetições consomem orçamento, mas não aumentam a chance de 15.</p>
+                    <div class="internal-actions">
+                        <button id="portfolio-run" type="button">Gerar carteira</button>
+                        <button id="portfolio-cancel" type="button" class="internal-secondary" hidden>Cancelar</button>
+                        <button id="portfolio-export" type="button" class="internal-secondary" disabled>Exportar novos jogos TXT</button>
+                    </div>
+                    <p id="portfolio-status" role="status" aria-live="polite">Defina o orçamento e gere sua carteira.</p>
+                    <div id="portfolio-result" hidden>
+                        <p id="portfolio-summary"></p>
+                        <div style="overflow-x:auto">
+                            <table><caption>Probabilidade de ao menos um jogo atingir a faixa, em sorteio uniforme de 15 entre 25.</caption>
+                            <thead><tr><th>Faixa</th><th>Salvos incluídos</th><th>Carteira total</th><th>Ganho absoluto</th></tr></thead>
+                            <tbody id="portfolio-coverage"></tbody></table>
+                        </div>
+                        <p id="portfolio-optimal" class="internal-note"></p>
+                        <h3>Novos jogos de 15 dezenas</h3>
+                        <pre id="portfolio-games" tabindex="0" aria-label="Lista dos novos jogos" style="max-height:320px;overflow:auto;font-size:14px;line-height:1.8"></pre>
+                        <p class="internal-note">O TXT contém somente os novos jogos e pode ser importado em Meus Jogos. Nenhuma aposta é realizada automaticamente.</p>
+                    </div>
+                    <p class="internal-note">Cada combinação de 15 tem a mesma probabilidade. A diversificação melhora a distribuição da cobertura; não prevê dezenas. Cobertura de 13+ não significa lucro e não mede o total de prêmios recebidos.</p>
+                </section>
 
                 <section id="internal-panel" class="internal-panel" aria-labelledby="internal-title" aria-busy="false">
                     <h2 id="internal-title">Jogos internos de 15 dezenas</h2>
@@ -906,7 +938,7 @@
             </div>
         </div>
     </div>
-    <script type="module" src="js/main.js?v=5.3.0"></script>
+    <script type="module" src="js/main.js?v=5.4.0"></script>
 
     <!-- Modal de confirmação (F0.4 — substitui confirm() nativo) -->
     <div id="confirm-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.55);align-items:center;justify-content:center">

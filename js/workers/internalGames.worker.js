@@ -1,4 +1,4 @@
-import { analyzeInternalGames } from '../analytics/internalGames.js?v=5.3.0';
+import { analyzeInternalGames } from '../analytics/internalGames.js?v=5.4.0';
 self.onmessage = ({data}) => {
     try {
         const result = analyzeInternalGames(data.selection, data.database, (current,total) => {

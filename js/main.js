@@ -1,3 +1,4 @@
+import { createPortfolioPanel } from './ui/portfolio.js?v=5.4.0';
 /**
  * js/main.js
  * Bootstrap da aplicação LotoMaisFácil.
@@ -16,8 +17,8 @@
  * aqui por compatibilidade. A integração completa acontece em fases futuras.
  */
 
-import { DEFAULT_HISTORY } from './data/defaultData.js?v=5.3.0';
-import { createInternalGamesPanel } from './ui/internalGames.js?v=5.3.0';
+import { DEFAULT_HISTORY } from './data/defaultData.js?v=5.4.0';
+import { createInternalGamesPanel } from './ui/internalGames.js?v=5.4.0';
 import { sanitizeHTML } from './core/utils.js';
 import {
     calculateHumanPopularity as calculateHumanPopularityCore,
@@ -2559,7 +2560,7 @@ function toggleNumber(num, el) {
         selectedNumbers.delete(num); el.classList.remove('selected'); el.setAttribute('aria-pressed', 'false');
     } else if (selectedNumbers.size < RULES.max_pick) {
         selectedNumbers.add(num); el.classList.add('selected'); el.setAttribute('aria-pressed', 'true');
-    }
+    } else { return; }
     updateAnalysis();
 }
 
@@ -2739,3 +2740,12 @@ window.changeConexaoMode       = changeConexaoMode;
 window.generateStructuredConexaoGame = generateStructuredConexaoGame;
 window.processImportBackup           = processImportBackup;
 window.calibrarPesos                 = calibrarPesos;
+
+
+// A carteira usa todos os registros persistidos, não apenas a página visível.
+createPortfolioPanel(async () => {
+    const persisted = await buscarTodos('savedGames');
+    const merged = new Map(persisted.map(g => [String(g.id), g]));
+    for (const g of mySavedGames) merged.set(String(g.id), g);
+    return [...merged.values()];
+});
