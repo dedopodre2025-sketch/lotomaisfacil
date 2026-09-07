@@ -1,4 +1,5 @@
-import { createPortfolioPanel } from './ui/portfolio.js?v=5.4.0';
+import { summarizeTransitions } from './analytics/transitions.js?v=5.5.0';
+import { createPortfolioPanel } from './ui/portfolio.js?v=5.5.0';
 /**
  * js/main.js
  * Bootstrap da aplicação LotoMaisFácil.
@@ -17,8 +18,8 @@ import { createPortfolioPanel } from './ui/portfolio.js?v=5.4.0';
  * aqui por compatibilidade. A integração completa acontece em fases futuras.
  */
 
-import { DEFAULT_HISTORY } from './data/defaultData.js?v=5.4.0';
-import { createInternalGamesPanel } from './ui/internalGames.js?v=5.4.0';
+import { DEFAULT_HISTORY } from './data/defaultData.js?v=5.5.0';
+import { createInternalGamesPanel } from './ui/internalGames.js?v=5.5.0';
 import { sanitizeHTML } from './core/utils.js';
 import {
     calculateHumanPopularity as calculateHumanPopularityCore,
@@ -435,15 +436,14 @@ function renderIntelligence(hist, strat, pop, cov, metrics) {
 
     const tierEl = document.getElementById('score-tier');
     if(tierEl) {
-        let tier = "Ruim"; let color = "#ef4444";
-        if (strat >= 90) { tier = "🔥 Muito Forte"; color = "#6366f1"; }
-        else if (strat >= 80) { tier = "🟢 Forte"; color = "#10b981"; }
-        else if (strat >= 65) { tier = "🟡 Regular"; color = "#fbbf24"; }
+        let tier = "Baixa aderência"; let color = "#ef4444";
+        if (strat >= 90) { tier = "Aderência muito alta"; color = "#6366f1"; }
+        else if (strat >= 80) { tier = "Alta aderência"; color = "#10b981"; }
+        else if (strat >= 65) { tier = "Aderência intermediária"; color = "#fbbf24"; }
         tierEl.textContent = tier; tierEl.style.backgroundColor = color + "22"; tierEl.style.color = color;
     }
 
-    let exp = "Este jogo possui ";
-    exp += pop > 40 ? "padrões óbvios que muitos escolhem. " : "uma estrutura difícil de ser replicada. ";
+    let exp = "Popularidade estimada por regras, sem dados de apostas do público. ";
     exp += covScore < 50 ? "Você está repetindo muitas dezenas nos salvos." : "Boa diversificação de conjunto.";
     setTxt('score-explanation', exp);
 
@@ -455,8 +455,8 @@ function renderIntelligence(hist, strat, pop, cov, metrics) {
     if (hist < 60) neg.push("Desvio Matemático Alto");
     if (coOcorrenciaData && coOcorrenciaData.chiMatrix && nums.length === 15) {
         const rawChi2 = calcularCoesaoPares(nums, coOcorrenciaData.chiMatrix);
-        if (rawChi2 >= 3)  pos.push("Pares com forte atração histórica");
-        if (rawChi2 < 0.5) neg.push("Pares do jogo tendem a se repelir");
+        if (rawChi2 >= 3)  pos.push("Alta coocorrência histórica dos pares");
+        if (rawChi2 < 0.5) neg.push("Baixa coocorrência histórica dos pares");
     }
     
     const posEl = document.getElementById('score-positives');
@@ -491,7 +491,7 @@ function updateMetricRow(id, val, status) {
     const el = document.getElementById(`val-${id}`); const s = document.getElementById(`status-${id}`);
     if (el) el.textContent = val;
     if (s) {
-        if(status === "IDEAL") { s.textContent = '🟢 IDEAL'; s.className = 'status-badge status-ok'; }
+        if(status === "IDEAL") { s.textContent = '🟢 ADERENTE À REGRA'; s.className = 'status-badge status-ok'; }
         else if(status === "ACEITÁVEL") { s.textContent = '🟡 ACEITÁVEL'; s.className = 'status-badge status-medio'; }
         else { s.textContent = '🔴 FORA PADRÃO'; s.className = 'status-badge status-alert'; }
     }
@@ -1096,6 +1096,12 @@ function runConexao13Analysis() {
         }
 
         counterEl.textContent = pairs.length;
+        const choose=(n,k)=>{let v=1;for(let j=1;j<=k;j++)v=v*(n-j+1)/j;return v;};
+        const expected=limit*(limit-1)/2*choose(15,conexaoMode)*choose(10,15-conexaoMode)/choose(25,15);
+        document.getElementById('connections-baseline').textContent=
+            'Pares observados: '+pairs.length.toLocaleString('pt-BR')+
+            ' · Esperados sob sorteios uniformes independentes: '+expected.toLocaleString('pt-BR',{maximumFractionDigits:1})+
+            '. A quantidade de conexões, isoladamente, não comprova previsão.';
 
         // Salva em cache para o gerador estruturado
         lastConexaoAnalysis.perma = freqPermanencia.map((v, i) => ({ n: i, v })).filter(x => x.n > 0).sort((a,b) => b.v - a.v);
@@ -1152,175 +1158,34 @@ function runConexao13Analysis() {
 }
 
 /* 🚀 NOVA FUNÇÃO ISOLADA: ANÁLISE DE TRANSIÇÃO (N-1 -> N) */
-function runTransitionAnalysis(pairs) {
-    if (database.length < 2) return;
-    
-    const summaryEl = document.getElementById('transition-summary');
-    const entriesEl = document.getElementById('trans-entries');
-    const exitsEl = document.getElementById('trans-exits');
-    
-    if (!summaryEl) return;
-
-    // Segurança caso não haja pares para o modo selecionado
-    if (!pairs || pairs.length === 0) {
-        summaryEl.innerHTML = '<div class="col-span-full text-center text-[10px] text-gray-400 italic py-4">Sem pares suficientes para traçar transição neste modo.</div>';
-        entriesEl.innerHTML = '';
-        exitsEl.innerHTML = '';
-        return;
+function runTransitionAnalysis() {
+    const summaryEl=document.getElementById('transition-summary');
+    if(!summaryEl)return;
+    const data=summarizeTransitions(database);
+    document.getElementById('transition-sample').textContent=data.total+' transições válidas.';
+    const labels={repeats:'Repetição mais observada',sums:'Soma mais observada',parity:'Quantidade de pares',highlow:'Quantidade de baixos',primes:'Quantidade de primos',sequence:'Maior sequência'};
+    summaryEl.replaceChildren();
+    for(const [key,label] of Object.entries(labels)) {
+        const options=Object.entries(data.counts[key]).sort((a,b)=>b[1]-a[1]);
+        const top=options[0], card=document.createElement('div');
+        card.className='bg-gray-50 border border-gray-100 p-3 rounded-2xl';
+        const title=document.createElement('p');title.className='text-sm text-slate-600';title.textContent=label;
+        const value=document.createElement('p');value.className='font-bold text-indigo-700';
+        value.textContent=top?options.filter(x=>x[1]===top[1]).map(x=>x[0]).join(' / '):'Sem dados';
+        const note=document.createElement('p');note.className='text-xs text-slate-600';
+        note.textContent=top?top[1]+'/'+data.total+' transições ('+(100*top[1]/data.total).toFixed(2)+'% cada)':'Importe concursos consecutivos.';
+        card.append(title,value,note);summaryEl.append(card);
     }
-
-    // Variáveis de agregação
-    let jumps = {
-        repeats: {}, 
-        sums: {}, 
-        parity: {}, 
-        highlow: {}, 
-        primes: {}, 
-        sequence: {}
-    };
-    
-    let dezenasEntrada = new Array(26).fill(0);
-    let dezenasSaida = new Array(26).fill(0);
-
-    // Analisa OS PARES FILTRADOS pelo modo atual (12 ou 13)
-    for (let i = 0; i < pairs.length; i++) {
-        const atual = pairs[i].c1;    // Concurso N (Mais recente do par)
-        const anterior = pairs[i].c2; // Concurso N-Y (Mais antigo do par, origem da transição)
-        
-        // 1. Transição de Repetição
-        const repCount = bitCount(atual.mask & anterior.mask);
-        
-        // Busca a posição do 'anterior' na base geral para saber o que veio antes dele no histórico
-        const idxAnterior = database.findIndex(c => c.id === anterior.id);
-        const prevRepCount = (idxAnterior !== -1 && idxAnterior < database.length - 1) ? bitCount(anterior.mask & database[idxAnterior+1].mask) : 'X';
-        
-        if(prevRepCount !== 'X') {
-            const key = `${prevRepCount} → ?`;
-            if(!jumps.repeats[key]) jumps.repeats[key] = {};
-            jumps.repeats[key][repCount] = (jumps.repeats[key][repCount] || 0) + 1;
-        }
-
-        // 2. Auxiliares de Estado
-        const getState = (c) => {
-            const evens = c.nums.filter(n => n % 2 === 0).length;
-            const lows = c.nums.filter(n => n <= 13).length;
-            const primes = c.nums.filter(n => PRIMES.includes(n)).length;
-            const sumBin = Math.floor(c.sum / 10) * 10;
-            return { 
-                sum: `${sumBin}-${sumBin+9}`, 
-                parity: `${evens}P`, 
-                hl: `${lows}B`, 
-                primes: `${primes} Pr.`, 
-                seq: `Seq.${c.maxSeq}` 
-            };
-        };
-
-        const sA = getState(anterior);
-        const sB = getState(atual);
-
-        const countJump = (cat, from, to) => {
-            if(!jumps[cat][from]) jumps[cat][from] = {};
-            jumps[cat][from][to] = (jumps[cat][from][to] || 0) + 1;
-        };
-
-        countJump('sums', sA.sum, sB.sum);
-        countJump('parity', sA.parity, sB.parity);
-        countJump('highlow', sA.hl, sB.hl);
-        countJump('primes', sA.primes, sB.primes);
-        countJump('sequence', sA.seq, sB.seq);
-
-        // 7. Troca Real de Dezenas
-        for(let n=1; n<=25; n++) {
-            const inAnt = anterior.nums.includes(n);
-            const inAtu = atual.nums.includes(n);
-            if(!inAnt && inAtu) dezenasEntrada[n]++; // Entrou no novo
-            if(inAnt && !inAtu) dezenasSaida[n]++;   // Saiu do anterior
+    for(const [kind,id] of [['entry','trans-entries'],['exit','trans-exits']]) {
+        const ranked=data[kind].map((v,n)=>({n,v})).slice(1).sort((a,b)=>b.v-a.v);
+        lastConexaoAnalysis[kind==='entry'?'transEntry':'transExit']=ranked;
+        const target=document.getElementById(id);target.replaceChildren();
+        for(const item of ranked.slice(0,10)) {
+            const span=document.createElement('span');span.className='text-sm font-bold text-slate-700 p-2';
+            span.textContent=String(item.n).padStart(2,'0')+': '+item.v+' vezes';
+            target.append(span);
         }
     }
-
-    // ATUALIZADO: Pega o estado do concurso MAIS RECENTE DENTRO DOS PARES FILTRADOS para projetar a tendência real do modo atual
-    const latestPair = pairs[0];
-    const lastContest = latestPair.c1; // O concurso mais recente que formou o par de 12/13 pontos
-    
-    const lastState = (() => {
-        const evens = lastContest.nums.filter(n => n % 2 === 0).length;
-        const lows = lastContest.nums.filter(n => n <= 13).length;
-        const primes = lastContest.nums.filter(n => PRIMES.includes(n)).length;
-        const sumBin = Math.floor(lastContest.sum / 10) * 10;
-        
-        // Repetição do lastContest válido em relação ao seu vizinho cronológico anterior na base global
-        const idxLast = database.findIndex(c => c.id === lastContest.id);
-        const lastRep = (idxLast !== -1 && idxLast < database.length - 1) ? bitCount(lastContest.mask & database[idxLast+1].mask) : 'X';
-
-        return { 
-            sum: `${sumBin}-${sumBin+9}`, 
-            parity: `${evens}P`, 
-            hl: `${lows}B`, 
-            primes: `${primes} Pr.`, 
-            seq: `Seq.${lastContest.maxSeq}`,
-            rep: `${lastRep} → ?`
-        };
-    })();
-
-    const getTopNext = (cat, currentVal) => {
-        // Regra 1: Amostra global mínima (exige pelo menos 5 pares no modo para projetar)
-        if (pairs.length < 5) return "Incerto";
-
-        const options = jumps[cat][currentVal];
-        if(!options) return "Incerto";
-        
-        const sorted = Object.entries(options).sort((a,b) => b[1] - a[1]);
-        if (sorted.length === 0) return "Incerto";
-
-        const firstVal = sorted[0][1];
-        const secondVal = sorted.length > 1 ? sorted[1][1] : 0;
-
-        // Regra 2: Frequência mínima (tendência tem que ter ocorrido pelo menos 3 vezes na mesma situação)
-        if (firstVal < 3) return "Incerto";
-
-        // Regra 3: Dominância mínima (desempate rigoroso e vantagem clara sobre o segundo lugar)
-        if (secondVal > 0 && (firstVal - secondVal < 2) && (firstVal < secondVal * 2)) {
-            return "Incerto";
-        }
-
-        return sorted[0][0];
-    };
-
-    // Renderiza os Cards de Transição Baseados no Concurso Atual
-    const metrics = [
-        { label: 'Próxima Repetição', val: getTopNext('repeats', lastState.rep), desc: `Pós ${lastState.rep.split(' ')[0]} pts` },
-        { label: 'Tendência de Soma', val: getTopNext('sums', lastState.sum), desc: `Pós ${lastState.sum}` },
-        { label: 'Transição Pares', val: getTopNext('parity', lastState.parity), desc: `Pós ${lastState.parity}` },
-        { label: 'Transição Baixos', val: getTopNext('highlow', lastState.hl), desc: `Pós ${lastState.hl}` },
-        { label: 'Fluxo Primos', val: getTopNext('primes', lastState.primes), desc: `Pós ${lastState.primes}` },
-        { label: 'Fluxo Seq. Máx', val: getTopNext('sequence', lastState.seq), desc: `Pós ${lastState.seq}` }
-    ];
-
-    summaryEl.innerHTML = metrics.map(m => `
-        <div class="bg-gray-50 border border-gray-100 p-3 rounded-2xl">
-            <p class="text-[8px] font-black text-gray-400 uppercase mb-1">${m.label}</p>
-            <p class="text-xs font-black text-indigo-700 mb-1">${m.val}</p>
-            <p class="text-[7px] font-bold text-gray-300 italic uppercase">${m.desc}</p>
-        </div>
-    `).join('');
-
-    // ATUALIZADO: Salva os dados de transição no objeto global para o Gerador Estruturado usar
-    lastConexaoAnalysis.transEntry = dezenasEntrada.map((v, i) => ({ n: i, v })).filter(x => x.n > 0).sort((a,b) => b.v - a.v);
-    lastConexaoAnalysis.transExit = dezenasSaida.map((v, i) => ({ n: i, v })).filter(x => x.n > 0).sort((a,b) => b.v - a.v);
-
-    // Renderiza Dezenas de Entrada/Saída da Transição
-    const renderBalls = (el, data, color) => {
-        const sorted = data.map((v, i) => ({ n: i, v })).filter(x => x.n > 0).sort((a,b) => b.v - a.v).slice(0, 10);
-        el.innerHTML = sorted.map(item => `
-            <div class="flex flex-col items-center gap-1">
-                <div class="w-6 h-6 flex items-center justify-center rounded-lg ${color} text-white text-[9px] font-black">${item.n.toString().padStart(2, '0')}</div>
-                <span class="text-[6px] font-bold text-gray-400">${item.v}x</span>
-            </div>
-        `).join('');
-    };
-
-    renderBalls(entriesEl, dezenasEntrada, 'bg-emerald-500');
-    renderBalls(exitsEl, dezenasSaida, 'bg-rose-500');
 }
 
 /* 🎯 NOVO GERADOR ESTRUTURADO (CONEXÕES) */
@@ -1860,7 +1725,7 @@ function gerarDistribuicoesHistoricas() {
         const limitHigh = isPattern ? 15 : 30;
         const limitMed = isPattern ? 8 : 20;
 
-        if(tp >= limitHigh) { dc = "dom-forte"; dt = "Forte Padrão"; } 
+        if(tp >= limitHigh) { dc = "dom-forte"; dt = "Frequente na base"; } 
         else if(tp >= limitMed) { dc = "dom-medio"; dt = "Padrão Médio"; } 
         
         const domEl = document.getElementById(dom); 
@@ -2329,14 +2194,14 @@ function _renderAffinity13Lab(result) {
     const agg = result.aggregate || {};
 
     const verdictMeta = result.verdict === 'zero13'
-        ? {title:'SINAL FAVORÁVEL A ZERO13', cls:'bg-emerald-50 border-emerald-200 text-emerald-800'}
+        ? {title:'MÉDIA FAVORECE ZERO13 NESTE TESTE', cls:'bg-emerald-50 border-emerald-200 text-emerald-800'}
         : result.verdict === 'high13'
-            ? {title:'SINAL FAVORÁVEL A HIGH13', cls:'bg-fuchsia-50 border-fuchsia-200 text-fuchsia-800'}
-            : {title:'ATÉ AQUI, TANTO FAZ', cls:'bg-slate-50 border-slate-200 text-slate-700'};
+            ? {title:'MÉDIA FAVORECE HIGH13 NESTE TESTE', cls:'bg-fuchsia-50 border-fuchsia-200 text-fuchsia-800'}
+            : {title:'DIFERENÇA NÃO DEMONSTRADA', cls:'bg-slate-50 border-slate-200 text-slate-700'};
     verdictEl.className = 'mb-4 p-4 border rounded-2xl ' + verdictMeta.cls;
     verdictEl.innerHTML = '<div class="flex flex-col md:flex-row md:items-center justify-between gap-2">'
         + '<div><p class="text-[10px] font-black uppercase tracking-wider">' + verdictMeta.title + '</p>'
-        + '<p class="text-[9px] font-medium mt-1">' + sanitizeHTML(result.reason || '') + '</p></div>'
+        + '<p class="text-[9px] font-medium mt-1">' + sanitizeHTML(result.reason || '') + ' Média de acertos não comprova vantagem em 13+, 14+ ou 15. Seeds sobre os mesmos alvos não são novos sorteios independentes.' + '</p></div>'
         + '<div class="text-[8px] font-black uppercase opacity-70">' + Number(result.seeds||0) + ' seeds · ' + Number(result.totalTargets||0) + ' alvos · ' + Number(result.pool?.built||0).toLocaleString('pt-BR') + ' jogos-base</div></div>';
 
     const cards = [

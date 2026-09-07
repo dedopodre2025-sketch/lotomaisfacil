@@ -1,4 +1,4 @@
-import { filterInternalGames, exportInternalGames, TOTAL_RESULTS } from '../analytics/internalGames.js?v=5.4.0';
+import { filterInternalGames, exportInternalGames, TOTAL_RESULTS } from '../analytics/internalGames.js?v=5.5.0';
 
 export function createInternalGamesPanel(getState) {
     const el = id => document.getElementById('internal-'+id);
@@ -66,7 +66,7 @@ export function createInternalGamesPanel(getState) {
         el('run').disabled = true; el('cancel').hidden = false;
         root.setAttribute('aria-busy','true'); el('status').textContent = 'Analisando os jogos internos…';
         try {
-            worker = new Worker(new URL('../workers/internalGames.worker.js?v=5.4.0',import.meta.url),{type:'module'});
+            worker = new Worker(new URL('../workers/internalGames.worker.js?v=5.5.0',import.meta.url),{type:'module'});
             const active = worker;
             worker.onmessage = ({data}) => {
                 if (worker !== active) return;
