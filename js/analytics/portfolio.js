@@ -1,4 +1,4 @@
-import { combinations15, mask15, TOTAL_RESULTS } from './internalGames.js?v=5.5.0';
+import { combinations15, mask15, TOTAL_RESULTS } from './internalGames.js?v=5.6.0';
 export { TOTAL_RESULTS };
 export function cents(value) {
     const s=String(value).trim().replace(',', '.');

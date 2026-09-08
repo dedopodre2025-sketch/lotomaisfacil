@@ -137,7 +137,7 @@
                 <h1 class="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-2">
                     <span class="text-emerald-600">LOTO</span> MAIS FÁCIL
                 </h1>
-                <p class="text-xs text-gray-400 font-bold uppercase tracking-widest italic text-range-desc">v5.5 Análise Verificada</p>
+                <p class="text-xs text-gray-400 font-bold uppercase tracking-widest italic text-range-desc">v5.6 Tetos Históricos</p>
             </div>
             <nav class="flex gap-2 bg-white p-1 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto max-w-full">
                 <button onclick="switchTab('simulador')" id="btn-tab-simulador" class="tab-btn active whitespace-nowrap">Simulador</button>
@@ -188,11 +188,23 @@
                             <button onclick="clearBoard()" class="px-2 py-3 border-2 border-gray-50 rounded-xl text-gray-400 font-bold hover:bg-gray-50 transition-all text-[9px] uppercase tracking-widest">Limpar</button>
                             <button onclick="generateSmartGame(15)" class="px-2 py-3 bg-emerald-500 text-white rounded-xl font-black shadow-sm text-[9px] uppercase tracking-widest">Smart Auto 15</button>
                             <button onclick="generateFocusedGame(15, 12)" class="px-2 py-3 bg-orange-500 text-white rounded-xl font-black shadow-sm text-[9px] uppercase tracking-widest">15 (Máx 12)</button>
-                            <button onclick="generateStrictFocusedGame(16, 12)" class="px-2 py-3 bg-violet-600 text-white rounded-xl font-black shadow-sm text-[9px] uppercase tracking-widest">16 (Máx 12)</button>
-                            <button onclick="generateFocusedGame(16, 13)" class="px-2 py-3 bg-indigo-600 text-white rounded-xl font-black shadow-sm text-[9px] uppercase tracking-widest">16 (Máx 13)</button>
+                            <button onclick="generateFocused16(12)" class="px-2 py-3 bg-violet-600 text-white rounded-xl font-black shadow-sm text-[9px] uppercase tracking-widest">16 — Teto 12</button>
+                            <button onclick="generateFocused16(13)" class="px-2 py-3 bg-indigo-600 text-white rounded-xl font-black shadow-sm text-[9px] uppercase tracking-widest">16 — Teto 13</button>
                             <button onclick="optimizeCurrentGame()" id="btn-optimize" class="hidden px-2 py-3 bg-black text-yellow-400 rounded-xl font-black shadow-sm text-[9px] uppercase tracking-widest border border-yellow-400/20 animate-pulse">Otimizar ✨</button>
                         </div>
                         <div id="smart-auto-status" class="text-center text-[8px] font-bold text-cyan-600 bg-cyan-50 border border-cyan-100 rounded-xl px-3 py-2">Smart Auto: pesos serão calibrados somente com concursos anteriores.</div>
+                        <div class="rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-sm text-slate-700 space-y-2">
+                            <label for="focused16-attempts">Busca dos botões de 16 dezenas</label>
+                            <select id="focused16-attempts" class="rounded border p-2 w-full">
+                                <option value="8000">8.000 tentativas</option><option value="25000">25.000 tentativas</option><option value="50000">50.000 tentativas</option>
+                            </select>
+                            <label class="block"><input type="checkbox" id="focused16-saved"> Priorizar combinações novas em relação a todos os salvos deste concurso</label>
+                            <p>Respeita o teto; depois reduz jogos internos no teto e ocorrências históricas. Com a opção marcada, combinações novas têm prioridade após respeitar o teto.</p>
+                            <p id="focused16-status" role="status" aria-live="polite">Escolha um teto histórico para buscar conjuntos de 16.</p>
+                            <button type="button" id="focused16-cancel" hidden class="rounded border border-indigo-500 p-2">Cancelar busca</button>
+                            <p id="focused16-summary" hidden></p>
+                            <p>Filtro experimental. Menos coincidências históricas não demonstram maior chance futura. O melhor encontrado não é necessariamente o melhor possível.</p>
+                        </div>
                         <button onclick="saveCurrentGame()" class="w-full py-4 bg-gray-900 text-emerald-400 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2">
                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V4a1 1 0 10-2 0v7.586l-1.293-1.293z"></path><path d="M5 15a2 2 0 002 2h6a2 2 0 002-2v-5a2 2 0 00-2-2H7a2 2 0 00-2 2v5z"></path></svg>
                             Salvar Jogo na Minha Lista
@@ -949,7 +961,7 @@
             </div>
         </div>
     </div>
-    <script type="module" src="js/main.js?v=5.5.0"></script>
+    <script type="module" src="js/main.js?v=5.6.0"></script>
 
     <!-- Modal de confirmação (F0.4 — substitui confirm() nativo) -->
     <div id="confirm-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.55);align-items:center;justify-content:center">

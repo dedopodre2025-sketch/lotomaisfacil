@@ -1,5 +1,5 @@
-import { TOTAL_RESULTS } from '../analytics/portfolio.js?v=5.5.0';
-import { exportInternalGames } from '../analytics/internalGames.js?v=5.5.0';
+import { TOTAL_RESULTS } from '../analytics/portfolio.js?v=5.6.0';
+import { exportInternalGames } from '../analytics/internalGames.js?v=5.6.0';
 export function createPortfolioPanel(getSaved) {
     const el=id=>document.getElementById('portfolio-'+id);
     let worker=null,result=null,request=0;
@@ -16,7 +16,7 @@ export function createPortfolioPanel(getSaved) {
         try {
             const saved=el('saved').checked?await getSaved():[];
             if(token!==request) return;
-            worker=new Worker(new URL('../workers/portfolio.worker.js?v=5.5.0',import.meta.url),{type:'module'});
+            worker=new Worker(new URL('../workers/portfolio.worker.js?v=5.6.0',import.meta.url),{type:'module'});
             worker.onerror=()=>{stop();el('status').textContent='Falha ao carregar o motor. Atualize a página e tente novamente.';};
             worker.onmessage=({data})=>{
                 if(data.type==='progress') {el('status').textContent=(data.phase==='base'?'Analisando salvos: ':'Gerando jogos: ')+data.done+'/'+data.total;return;}

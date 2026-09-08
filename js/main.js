@@ -1,5 +1,6 @@
-import { summarizeTransitions } from './analytics/transitions.js?v=5.5.0';
-import { createPortfolioPanel } from './ui/portfolio.js?v=5.5.0';
+import { createFocused16Panel } from './ui/focused16.js?v=5.6.0';
+import { summarizeTransitions } from './analytics/transitions.js?v=5.6.0';
+import { createPortfolioPanel } from './ui/portfolio.js?v=5.6.0';
 /**
  * js/main.js
  * Bootstrap da aplicação LotoMaisFácil.
@@ -18,8 +19,8 @@ import { createPortfolioPanel } from './ui/portfolio.js?v=5.5.0';
  * aqui por compatibilidade. A integração completa acontece em fases futuras.
  */
 
-import { DEFAULT_HISTORY } from './data/defaultData.js?v=5.5.0';
-import { createInternalGamesPanel } from './ui/internalGames.js?v=5.5.0';
+import { DEFAULT_HISTORY } from './data/defaultData.js?v=5.6.0';
+import { createInternalGamesPanel } from './ui/internalGames.js?v=5.6.0';
 import { sanitizeHTML } from './core/utils.js';
 import {
     calculateHumanPopularity as calculateHumanPopularityCore,
@@ -248,7 +249,7 @@ function getSignificanciaQui2(nums) {
     return { dims, overall: { label, class: cls, level } };
 }
 function updateAnalysis() {
-    internalGamesPanel.invalidate();
+    internalGamesPanel.invalidate(); focused16Panel?.invalidate();
     const nums = Array.from(selectedNumbers).sort((a,b) => a - b);
     
     // NOVO: Persiste no localStorage as dezenas atualmente selecionadas
@@ -752,7 +753,7 @@ function processImportBackup(event) {
                 setTimeout(async () => {
                     // 1. Restaurar variáveis para memória apenas com os dados filtrados e validados
                     database = validDatabase;
-                    internalGamesPanel.invalidate();
+                    internalGamesPanel.invalidate(); focused16Panel?.invalidate();
                     historicalStandards = validStandards;
                     mySavedGames = validSavedGames;
                     
@@ -900,7 +901,7 @@ async function importHistory() {
         });
 
         database = newDb;
-        internalGamesPanel.invalidate(); 
+        internalGamesPanel.invalidate(); focused16Panel?.invalidate(); 
         
         // NOVO: Limpa os caches para forçar o recálculo completo da nova base
         systemCache.tableHtml = null;
@@ -1272,7 +1273,7 @@ function generateStructuredConexaoGame() {
 
 function clearBoard() {
     selectedNumbers.clear();
-    internalGamesPanel.invalidate();
+    internalGamesPanel.invalidate(); focused16Panel?.invalidate();
     document.querySelectorAll('.ball').forEach(b => { b.classList.remove('selected'); b.setAttribute('aria-pressed', 'false'); });
     localStorage.removeItem('lotoCurrentBoard');
     resetMetrics();
@@ -1359,6 +1360,7 @@ function generateSmartGame(qty = 15) {
 }
 
 function generateFocusedGame(numCount, targetMaxCoinc) {
+    if (numCount === 16) return focused16Panel.run(targetMaxCoinc);
     if (database.length === 0) return;
     document.getElementById('loading-overlay').style.display = 'flex';
     setTimeout(() => {
@@ -1406,71 +1408,8 @@ function generateFocusedGame(numCount, targetMaxCoinc) {
 }
 
 function generateStrictFocusedGame(numCount, targetMaxCoinc) {
-    if (database.length === 0) return;
-    document.getElementById('loading-overlay').style.display = 'flex';
-    setTimeout(() => {
-        clearBoard();
-
-        const masks = database.map(c => c.mask);
-        const countExactMatches = (nums, target) => {
-            const mask = nums.reduce((m, n) => m | (1 << (n - 1)), 0);
-            let count = 0;
-            for (let j = 0; j < masks.length; j++) {
-                if (bitCount(mask & masks[j]) === target) count++;
-            }
-            return count;
-        };
-        const maxOverlap = nums => {
-            const mask = nums.reduce((m, n) => m | (1 << (n - 1)), 0);
-            let maxMatch = 0;
-            for (let j = 0; j < masks.length; j++) {
-                const m = bitCount(mask & masks[j]);
-                if (m > maxMatch) maxMatch = m;
-            }
-            return maxMatch;
-        };
-        const getBase15 = () => getHeadlessFocusedGame(targetMaxCoinc, database);
-
-        const base15 = getBase15();
-        if (!base15 || base15.length !== 15) {
-            showToast('Não foi possível gerar um jogo base de 15 números com Máx 12.', 'warning');
-            document.getElementById('loading-overlay').style.display = 'none';
-            return;
-        }
-
-        const unused = Array.from({ length: 25 }, (_, i) => i + 1).filter(n => !base15.includes(n));
-        const shuffledUnused = unused.sort(() => Math.random() - 0.5).slice(0, Math.min(9, unused.length));
-
-        let bestCandidate = null;
-        let bestCount13 = Infinity;
-        let bestMaxMatch = Infinity;
-
-        for (const extra of shuffledUnused) {
-            const candidate = [...base15, extra];
-            const count13 = countExactMatches(candidate, 13);
-            const maxMatch = maxOverlap(candidate);
-            if (count13 < bestCount13 || (count13 === bestCount13 && maxMatch < bestMaxMatch)) {
-                bestCount13 = count13;
-                bestMaxMatch = maxMatch;
-                bestCandidate = candidate;
-            }
-        }
-
-        if (bestCandidate) {
-            bestCandidate.forEach(n => {
-                selectedNumbers.add(n);
-                const el = document.getElementById(`num-${n}`);
-                if (el) { el.classList.add('selected'); el.setAttribute('aria-pressed', 'true'); }
-            });
-            showToast(`16 (Máx 12): melhor extra gerado com ${bestCount13} jogos de 13 coincidências (máx ${bestMaxMatch}).`, 'success');
-            console.log('16 max 12 candidate:', bestCandidate.join(','), '13 coincidências:', bestCount13, 'maxMatch:', bestMaxMatch);
-        } else {
-            showToast('Não foi possível gerar uma extensão de 16 números a partir do jogo 15 Máx 12.', 'warning');
-        }
-
-        updateAnalysis();
-        document.getElementById('loading-overlay').style.display = 'none';
-    }, 50);
+    if (numCount === 16) return focused16Panel.run(targetMaxCoinc);
+    throw new Error('Este gerador exige 16 dezenas.');
 }
 
 function evaluateCandidate(nums) {
@@ -2614,3 +2553,24 @@ createPortfolioPanel(async () => {
     for (const g of mySavedGames) merged.set(String(g.id), g);
     return [...merged.values()];
 });
+
+
+var focused16Panel = createFocused16Panel(
+    () => ({database}),
+    async () => {
+        const persisted = await buscarTodos('savedGames');
+        const merged = new Map(persisted.map(g => [String(g.id),g]));
+        for (const g of mySavedGames) merged.set(String(g.id),g);
+        return [...merged.values()];
+    },
+    nums => {
+        clearBoard();
+        for (const n of nums) {
+            selectedNumbers.add(n);
+            const el=document.getElementById('num-'+n);
+            if(el){el.classList.add('selected');el.setAttribute('aria-pressed','true');}
+        }
+        updateAnalysis();
+    }
+);
+window.generateFocused16 = cap => focused16Panel.run(cap);
